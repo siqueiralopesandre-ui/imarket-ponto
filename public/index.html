@@ -526,12 +526,29 @@
         </div>
         <div class="card fade" id="chartCard" style="display:none"><h2>Horas por dia</h2>
           <div style="position:relative;height:220px"><canvas id="chHoras"></canvas></div></div>
-        <div class="card fade"><h2>Batidas do mês</h2><div id="lista" class="empty">Carregando...</div></div>`;
+        <div class="card fade"><h2>Batidas do mês</h2><div id="lista" class="empty">Carregando...</div></div>
+        <div class="card fade">
+          <h2>Correção de ponto</h2>
+          <p class="sub">Esqueceu ou errou uma batida? Peça a correção — a gestão aprova.</p>
+          <div id="corMsg"></div>
+          <label for="corData">Dia</label>
+          <input type="date" id="corData" max="${new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date())}">
+          <label for="corTipo">Tipo de batida</label>
+          <select id="corTipo"><option value="entrada">Entrada</option><option value="entrada_intervalo">Saída intervalo</option><option value="retorno_intervalo">Volta intervalo</option><option value="saida">Saída</option></select>
+          <label for="corHora">Horário correto</label>
+          <input type="time" id="corHora">
+          <label for="corMotivo">Motivo</label>
+          <input id="corMotivo" placeholder="ex.: esqueci de bater a saída">
+          <button class="btn" id="corEnviar">Pedir correção</button>
+          <div id="corLista" class="empty" style="margin-top:14px">Carregando...</div>
+        </div>`;
       $("#prevM").onclick=()=>{ let ny=y,nm=m-1; if(nm<1){nm=12;ny--;} state.mesRef={y:ny,m:nm}; renderHoras(); };
       $("#nextM").onclick=()=>{ if(noLimite)return; let ny=y,nm=m+1; if(nm>12){nm=1;ny++;} state.mesRef={y:ny,m:nm}; renderHoras(); };
       renderBancoCard();
       $("#bancoToggle").onclick=()=>{ state.bancoView=state.bancoView==="mes"?"total":"mes";
         $("#bancoToggle").textContent=state.bancoView==="mes"?"Ver acumulado":"Ver mês"; renderBancoCard(); };
+      $("#corEnviar").onclick=enviarCorrecao;
+      listarCorrecoes();
 
       const { data, error } = await sb.from("vw_minhas_batidas").select("*")
         .gte("data_ref",ini).lte("data_ref",fim).order("registrado_em",{ascending:false});
@@ -753,6 +770,40 @@
       if(error||!data?.ok){ msg("#trMsg","Não foi possível concluir."+(data?.motivo?` (${data.motivo})`:""),"err"); return; }
       state.banco=null;
       await renderTrocas();
+    }
+
+    // ------------------------------------------------------- CORREÇÃO DE PONTO
+    async function enviarCorrecao(){
+      const data=$("#corData").value, tipo=$("#corTipo").value, hora=$("#corHora").value, motivo=$("#corMotivo").value.trim(), b=$("#corEnviar");
+      if(!data||!hora) return msg("#corMsg","Informe o dia e o horário correto.","err");
+      b.disabled=true; b.innerHTML='<span class="spin"></span> Enviando...';
+      const { data:r, error } = await sb.functions.invoke("corrigir-ponto",{ body:{ action:"solicitar", data, tipo, hora, motivo }});
+      b.disabled=false; b.textContent="Pedir correção";
+      if(error||!r?.ok) return msg("#corMsg","Não foi possível enviar."+(r?.motivo?` (${r.motivo})`:""),"err");
+      msg("#corMsg","Pedido enviado! A gestão vai analisar.","ok");
+      $("#corHora").value=""; $("#corMotivo").value="";
+      await listarCorrecoes();
+    }
+    async function listarCorrecoes(){
+      const el=$("#corLista"); if(!el) return;
+      const { data, error } = await sb.from("correcoes_ponto").select("*").order("criado_em",{ascending:false}).limit(10);
+      if(error){ el.className=""; el.innerHTML=`<div class="msg err">${traduz(error.message)}</div>`; return; }
+      if(!data||!data.length){ el.innerHTML=`<div class="empty">Nenhum pedido de correção ainda.</div>`; return; }
+      const br=d=>d.split("-").reverse().join("/");
+      const stl={pendente:["i","Em análise"],aprovada:["e","Aprovada"],rejeitada:["s","Rejeitada"],cancelada:["r","Cancelada"]};
+      el.className="";
+      el.innerHTML=data.map(c=>{ const [bc,bt]=stl[c.status]||["i",c.status];
+        const acao=c.status==="pendente"?`<button class="link" data-cor="${c.id}" style="text-align:left;padding:6px 0">Cancelar</button>`:"";
+        return `<div class="row"><div><b>${TIPOS[c.tipo]?.lb||c.tipo} ${c.hora}</b> <span class="m">· ${br(c.data)}</span>
+          ${c.motivo?`<div class="m">${c.motivo}</div>`:""}
+          ${c.status==="rejeitada"&&c.motivo_rejeicao?`<div class="m" style="color:var(--err)">Motivo: ${c.motivo_rejeicao}</div>`:""}</div>
+          <span class="tag ${bc}">${bt}</span></div>${acao}`; }).join("");
+      el.querySelectorAll("[data-cor]").forEach(x=>x.onclick=()=>cancelarCorrecao(x.dataset.cor));
+    }
+    async function cancelarCorrecao(id){
+      const { data, error } = await sb.functions.invoke("corrigir-ponto",{ body:{ action:"cancelar", id }});
+      if(error||!data?.ok){ msg("#corMsg","Não foi possível cancelar.","err"); return; }
+      await listarCorrecoes();
     }
 
     // ------------------------------------------------------------- helpers

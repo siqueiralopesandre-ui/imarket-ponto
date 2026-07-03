@@ -169,7 +169,7 @@
 
     async function carregar(){
       const {y,m}=st.mes, ini=primeiro(y,m), fim=ultimo(y,m);
-      const [c,e,r,a,bj,atOk,atPend,trcP]=await Promise.all([
+      const [c,e,r,a,bj,atOk,atPend,trcP,corrP]=await Promise.all([
         sb.from("colaboradores").select("*").eq("papel","colaborador").eq("ativo",true).order("nome"),
         sb.from("escalas").select("*").gte("data",ini).lte("data",fim),
         sb.from("registros_ponto").select("colaborador_id,tipo,registrado_em,data_ref").gte("data_ref",ini).lte("data_ref",fim),
@@ -178,10 +178,12 @@
         sb.from("atestados").select("*").eq("status","aprovado").lte("data_inicio",fim).gte("data_fim",ini),
         sb.from("atestados").select("*").eq("status","pendente").order("enviado_em",{ascending:true}),
         sb.from("trocas").select("*").eq("status","aguardando_gestor").order("criado_em",{ascending:true}),
+        sb.from("correcoes_ponto").select("*").eq("status","pendente").order("criado_em",{ascending:true}),
       ]);
       st.colaboradores=c.data||[];
       st.pendentes=atPend.data||[];
       st.trocasPend=trcP.data||[];
+      st.corrPend=corrP.data||[];
       st.dados=computar(st.colaboradores, e.data||[], r.data||[], a.data||[], bj.data||[], atOk.data||[]);
       render();
     }
@@ -301,6 +303,10 @@
         <div class="card">
           <div class="sectitle"><h2 style="margin:0">Trocas para aprovar</h2>${st.trocasPend&&st.trocasPend.length?`<span class="pill">${st.trocasPend.length} pendente(s)</span>`:""}</div>
           <div id="trocaList"><div class="empty">Carregando...</div></div>
+        </div>
+        <div class="card">
+          <div class="sectitle"><h2 style="margin:0">Correções de ponto para aprovar</h2>${st.corrPend&&st.corrPend.length?`<span class="pill">${st.corrPend.length} pendente(s)</span>`:""}</div>
+          <div id="corrList"><div class="empty">Carregando...</div></div>
         </div>`;
       $("#prevM").onclick=()=>{let ny=y,nm=m-1;if(nm<1){nm=12;ny--;}st.mes={y:ny,m:nm};carregar();};
       $("#nextM").onclick=()=>{if(noLim)return;let ny=y,nm=m+1;if(nm>12){nm=1;ny++;}st.mes={y:ny,m:nm};carregar();};
@@ -311,6 +317,7 @@
       wireTabs();
       renderPendentes();
       renderTrocasGestor();
+      renderCorrecoesGestor();
       st.sel==="todos" ? renderTodos() : renderColab(st.sel);
     }
 
@@ -513,6 +520,36 @@
       let motivo=null;
       if(action==="rejeitar"){ motivo=prompt("Motivo (opcional):"); if(motivo===null) return; }
       const {data,error}=await sb.functions.invoke("trocas",{body:{action,troca_id,motivo}});
+      if(error||!data?.ok){ alert("Não foi possível: "+(data?.motivo||"erro")); return; }
+      await carregar();
+    }
+
+    // ---------------------------------------------- APROVAÇÃO DE CORREÇÕES
+    function renderCorrecoesGestor(){
+      const el=$("#corrList"); if(!el) return;
+      const cs=st.corrPend||[];
+      if(!cs.length){ el.innerHTML=`<div class="empty">Nenhuma correção pendente.</div>`; return; }
+      const nome=id=>{const c=st.colaboradores.find(x=>x.id===id);return c?c.nome.split(" ").slice(0,2).join(" "):"Colaborador";};
+      const br=d=>d.split("-").reverse().join("/");
+      const LB={entrada:"Entrada",entrada_intervalo:"Saída intervalo",retorno_intervalo:"Volta intervalo",saida:"Saída"};
+      el.innerHTML=cs.map(c=>`
+        <div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center">
+            <div><b>${nome(c.colaborador_id)}</b> · ${LB[c.tipo]||c.tipo} <b>${c.hora}</b> em ${br(c.data)}
+              ${c.motivo?`<div style="color:var(--muted);font-size:13px">${c.motivo}</div>`:""}</div>
+            <div style="display:flex;gap:6px">
+              <button class="btn" data-ap="${c.id}" style="min-height:38px;padding:8px 14px">Aprovar</button>
+              <button class="btn ghost" data-rj="${c.id}" style="min-height:38px;padding:8px 14px">Rejeitar</button>
+            </div>
+          </div>
+        </div>`).join("");
+      el.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>avaliarCorrecao(b.dataset.ap,"aprovar"));
+      el.querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>avaliarCorrecao(b.dataset.rj,"rejeitar"));
+    }
+    async function avaliarCorrecao(id,action){
+      let motivo=null;
+      if(action==="rejeitar"){ motivo=prompt("Motivo (opcional):"); if(motivo===null) return; }
+      const {data,error}=await sb.functions.invoke("corrigir-ponto",{body:{action,id,motivo}});
       if(error||!data?.ok){ alert("Não foi possível: "+(data?.motivo||"erro")); return; }
       await carregar();
     }
