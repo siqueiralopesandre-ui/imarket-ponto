@@ -127,7 +127,7 @@
     const sb=createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
     const $=s=>document.querySelector(s);
     const screen=$("#screen");
-    const TOL=10; // tolerância de atraso/saída antecipada (min) — Config iMarket
+    let TOL=10, TOL_SAIDA=10; // tolerâncias (min) — carregadas da tabela config
     const TIPO_LB={entrada:"Entrada",entrada_intervalo:"Saída interv.",retorno_intervalo:"Volta interv.",saida:"Saída"};
     const ICON={prev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
                 next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'};
@@ -169,7 +169,7 @@
 
     async function carregar(){
       const {y,m}=st.mes, ini=primeiro(y,m), fim=ultimo(y,m);
-      const [c,e,r,a,bj,atOk,atPend,trcP,corrP]=await Promise.all([
+      const [c,e,r,a,bj,atOk,atPend,trcP,corrP,cfg,fer]=await Promise.all([
         sb.from("colaboradores").select("*").eq("papel","colaborador").eq("ativo",true).order("nome"),
         sb.from("escalas").select("*").gte("data",ini).lte("data",fim),
         sb.from("registros_ponto").select("colaborador_id,tipo,registrado_em,data_ref").gte("data_ref",ini).lte("data_ref",fim),
@@ -179,7 +179,13 @@
         sb.from("atestados").select("*").eq("status","pendente").order("enviado_em",{ascending:true}),
         sb.from("trocas").select("*").eq("status","aguardando_gestor").order("criado_em",{ascending:true}),
         sb.from("correcoes_ponto").select("*").eq("status","pendente").order("criado_em",{ascending:true}),
+        sb.from("config").select("chave,valor"),
+        sb.from("feriados").select("data,nome").gte("data",ini).lte("data",fim),
       ]);
+      st.config={}; (cfg.data||[]).forEach(x=>st.config[x.chave]=x.valor);
+      TOL=parseInt(st.config.tolerancia_atraso_min||"10",10);
+      TOL_SAIDA=parseInt(st.config.tolerancia_saida_min||"10",10);
+      st.feriadosMes=new Set((fer.data||[]).map(x=>x.data));
       st.colaboradores=c.data||[];
       st.pendentes=atPend.data||[];
       st.trocasPend=trcP.data||[];
@@ -213,7 +219,8 @@
           const get=t=>regs.find(x=>x.tipo===t);
           const ent=get("entrada"), sai=get("saida"), si=get("entrada_intervalo"), vi=get("retorno_intervalo");
           const compareceu=!!ent;
-          const previstoDia = esc && !esc.eh_folga && esc.entrada_prevista;
+          const feriado = (esc && esc.tipo==="feriado") || (st.feriadosMes && st.feriadosMes.has(d));
+          const previstoDia = esc && !esc.eh_folga && esc.entrada_prevista && !feriado;
           const jornadaPrev = (esc && esc.entrada_prevista && esc.saida_prevista)
             ? (hhmmToMin(esc.saida_prevista)-hhmmToMin(esc.entrada_prevista)-(esc.intervalo_min||0)) : null;
           let trab=null;
@@ -231,14 +238,14 @@
           let status, nota = pagDia>0 ? `pagou ${fmtH(pagDia)}` : "";
           if(abono){ atest++; status={cls:"b-atestado",txt: aus?(aus.tipo==="atestado"?"Atestado":"Justificada"):"Atestado"}; }
           else if(folgaDia>0 && !compareceu){ status={cls:"b-folga",txt:`Folga (banco ${fmtH(folgaDia)})`}; }
-          else if(esc && esc.tipo==="feriado"){ status = compareceu?{cls:"b-ok",txt:"Feriado (trab.)"}:{cls:"b-atestado",txt:"Feriado"}; }
+          else if(feriado){ status = compareceu?{cls:"b-ok",txt:"Feriado (trab.)"}:{cls:"b-atestado",txt:"Feriado"}; }
           else if(esc && esc.eh_folga){ status={cls:"b-folga",txt:"Folga"}; }
           else if(previstoDia && !compareceu){ faltas++; status={cls:"b-falta",txt:"Falta"}; }
           else if(compareceu){
             if(previstoDia && atrasoMin>TOL){ atrasos++; status={cls:"b-atraso",txt:`Atraso ${atrasoMin}min`}; }
             else status={cls:"b-ok",txt:"OK"};
           } else status={cls:"b-folga",txt:"—"};
-          if(previstoDia && sai && antMin>TOL) saidasAnt++;
+          if(previstoDia && sai && antMin>TOL_SAIDA) saidasAnt++;
           dias.push({d,esc,ent,sai,si,vi,trab,atrasoMin,antMin,status,previstoDia,aus,nota});
         });
         out[c.id]={colab:c,dias,prevMin,trabMin,diasPrev,diasTrab,faltas,atrasos,saidasAnt,atestados:atest,
@@ -252,8 +259,9 @@
     function wireTabs(){ document.querySelectorAll(".tabbtn").forEach(b=>b.onclick=()=>{st.aba=b.dataset.aba;render();}); }
     function render(){
       destroyCharts();
-      const tabBar=`<div class="tabsbar"><button class="tabbtn ${st.aba==="dash"?"on":""}" data-aba="dash">Dashboard</button><button class="tabbtn ${st.aba==="escala"?"on":""}" data-aba="escala">Escala</button></div>`;
+      const tabBar=`<div class="tabsbar"><button class="tabbtn ${st.aba==="dash"?"on":""}" data-aba="dash">Dashboard</button><button class="tabbtn ${st.aba==="escala"?"on":""}" data-aba="escala">Escala</button><button class="tabbtn ${st.aba==="config"?"on":""}" data-aba="config">Config</button></div>`;
       if(st.aba==="escala"){ screen.innerHTML=tabBar+`<div id="escWrap"><div class="card"><div class="empty"><span class="spin"></span></div></div></div>`; wireTabs(); renderEscala(); return; }
+      if(st.aba==="config"){ screen.innerHTML=tabBar+`<div id="cfgWrap"><div class="card"><div class="empty"><span class="spin"></span></div></div></div>`; wireTabs(); renderConfig(); return; }
       const {y,m}=st.mes, at=mesAtual(), noLim=(y>at.y)||(y===at.y&&m>=at.m);
       const opts=`<option value="todos">Todos os colaboradores</option>`+
         st.colaboradores.map(c=>`<option value="${c.id}" ${st.sel===c.id?"selected":""}>${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("");
@@ -689,6 +697,64 @@
       addD(off(-2));                  // Sexta-feira Santa
       addD(off(60));                  // Corpus Christi
       return s; }
+
+    // ---------------------------------------------------- TELA DE CONFIG
+    async function renderConfig(){
+      const [cfg, fer] = await Promise.all([
+        sb.from("config").select("*").order("chave"),
+        sb.from("feriados").select("*").order("data"),
+      ]);
+      const cmap={}; (cfg.data||[]).forEach(x=>cmap[x.chave]=x.valor);
+      const anoAtual=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date()).slice(0,4);
+      const fers=(fer.data||[]).filter(f=>f.data>=anoAtual+"-01-01");
+      const br=d=>d.split("-").reverse().join("/");
+      $("#cfgWrap").innerHTML=`
+        <div class="card">
+          <h2>Parâmetros</h2>
+          <div class="formrow" style="grid-template-columns:1fr 1fr 1fr auto">
+            <div><label>Tolerância de atraso (min)</label><input type="number" id="cfgAtraso" value="${cmap.tolerancia_atraso_min||10}" min="0"></div>
+            <div><label>Tolerância saída antecip. (min)</label><input type="number" id="cfgSaida" value="${cmap.tolerancia_saida_min||10}" min="0"></div>
+            <div><label>Jornada padrão (min)</label><input type="number" id="cfgJornada" value="${cmap.jornada_padrao_min||510}" min="0"></div>
+            <div><button class="btn" id="cfgSalvar">Salvar</button></div>
+          </div>
+          <div id="cfgMsg"></div>
+        </div>
+        <div class="card">
+          <h2>Feriados</h2>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Já inclui os nacionais, de Pernambuco e de Petrolina (2026–2027). Feriado não conta como falta e não pesa no banco. Adicione datas próprias abaixo.</p>
+          <div class="formrow" style="grid-template-columns:1fr 2fr auto">
+            <div><label>Data</label><input type="date" id="ferData"></div>
+            <div><label>Nome</label><input id="ferNome" placeholder="ex.: Aniversário da loja"></div>
+            <div><button class="btn ghost" id="ferAdd">Adicionar</button></div>
+          </div>
+          <div id="ferMsg"></div>
+          <div style="margin-top:12px">${fers.map(f=>`<div class="row"><div><b>${br(f.data)}</b> <span class="m">· ${f.nome} (${f.abrangencia})</span></div><button class="link" data-fer="${f.data}" style="color:var(--err);width:auto;padding:4px 8px">Remover</button></div>`).join("")||`<div class="empty">Nenhum feriado.</div>`}</div>
+        </div>`;
+      $("#cfgSalvar").onclick=salvarConfig;
+      $("#ferAdd").onclick=addFeriado;
+      document.querySelectorAll("[data-fer]").forEach(b=>b.onclick=()=>delFeriado(b.dataset.fer));
+    }
+    async function salvarConfig(){
+      const ups=[
+        {chave:"tolerancia_atraso_min",valor:String($("#cfgAtraso").value||"10")},
+        {chave:"tolerancia_saida_min",valor:String($("#cfgSaida").value||"10")},
+        {chave:"jornada_padrao_min",valor:String($("#cfgJornada").value||"510")},
+      ];
+      const {error}=await sb.from("config").upsert(ups,{onConflict:"chave"});
+      $("#cfgMsg").innerHTML=error?`<div class="msg err">Erro: ${error.message}</div>`:`<div class="msg ok">Parâmetros salvos.</div>`;
+    }
+    async function addFeriado(){
+      const data=$("#ferData").value, nome=$("#ferNome").value.trim();
+      if(!data||!nome){ $("#ferMsg").innerHTML=`<div class="msg err">Informe data e nome.</div>`; return; }
+      const {error}=await sb.from("feriados").upsert({data,nome,abrangencia:"empresa"},{onConflict:"data"});
+      if(error){ $("#ferMsg").innerHTML=`<div class="msg err">Erro: ${error.message}</div>`; return; }
+      renderConfig();
+    }
+    async function delFeriado(data){
+      const {error}=await sb.from("feriados").delete().eq("data",data);
+      if(error){ $("#ferMsg").innerHTML=`<div class="msg err">Erro: ${error.message}</div>`; return; }
+      renderConfig();
+    }
 
     async function salvarEscala(y,m,dnm){
       const b=$("#escSalvar"), titulo=`Salvar escala de ${fmtMesAno(y,m)}`;

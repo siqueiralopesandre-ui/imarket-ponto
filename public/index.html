@@ -603,13 +603,15 @@
     // ------------------------------------------------------ BANCO DE HORAS
     async function carregarBanco(){
       const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date());
-      const [esc,reg,aus,aj,at]=await Promise.all([
+      const [esc,reg,aus,aj,at,fer]=await Promise.all([
         sb.from("escalas").select("data,eh_folga,tipo,entrada_prevista,saida_prevista,intervalo_min"),
         sb.from("registros_ponto").select("tipo,registrado_em,data_ref"),
         sb.from("ausencias").select("data"),
         sb.from("banco_ajustes").select("data,tipo,minutos"),
         sb.from("atestados").select("data_inicio,data_fim").eq("status","aprovado"),
+        sb.from("feriados").select("data"),
       ]);
+      const feriadoSet=new Set((fer.data||[]).map(x=>x.data));
       const escMap={}; (esc.data||[]).forEach(e=>escMap[e.data]=e);
       const regMap={}; (reg.data||[]).forEach(r=>{(regMap[r.data_ref]=regMap[r.data_ref]||[]).push(r);});
       const abono=new Set((aus.data||[]).map(a=>a.data));
@@ -621,7 +623,7 @@
         const e=escMap[d], regs=regMap[d]||[];
         const compareceu=regs.some(r=>r.tipo==="entrada");
         const trab=minutosTrabalhados(regs);
-        const previstoDia=e&&!e.eh_folga&&e.tipo!=="feriado"&&e.entrada_prevista;
+        const previstoDia=e&&!e.eh_folga&&e.tipo!=="feriado"&&e.entrada_prevista&&!feriadoSet.has(d);
         const jornadaPrev=(e&&e.entrada_prevista&&e.saida_prevista)?(hhmmToMin(e.saida_prevista)-hhmmToMin(e.entrada_prevista)-(e.intervalo_min||0)):0;
         let dia=0;
         if(compareceu) dia+=trab;
