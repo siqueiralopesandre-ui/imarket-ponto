@@ -135,6 +135,26 @@
     .navbtn{width:42px;height:42px;border-radius:12px;border:1.5px solid var(--line);background:#fff;
       cursor:pointer;display:grid;place-items:center;color:var(--brand);transition:background var(--t)}
     .navbtn:hover{background:var(--field)} .navbtn:disabled{opacity:.35;cursor:default}
+    .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+    .cal-h{text-align:center;font-family:"Poppins";font-weight:600;font-size:10.5px;color:var(--muted);
+      padding:2px 0 4px;text-transform:uppercase;letter-spacing:.02em}
+    .cal-d{aspect-ratio:1/1;border:1.5px solid var(--line);border-radius:11px;padding:5px 4px;
+      display:flex;flex-direction:column;background:#fff;overflow:hidden}
+    .cal-d.blank{background:transparent;border:none}
+    .cal-d.off{background:var(--field);border-style:dashed}
+    .cal-d.work{background:var(--ok-bg);border-color:#bfe4cc}
+    .cal-d.folga{background:var(--info-bg);border-color:#c9e3f5}
+    .cal-d.fer{background:var(--warn-bg);border-color:#f0dcc0}
+    .cal-d.today{outline:2px solid var(--brand);outline-offset:1px}
+    .cal-d .dn{font-family:"Poppins";font-weight:700;font-size:12.5px;color:var(--brand-ink);line-height:1}
+    .cal-d .cl{margin-top:auto;font-size:9.5px;font-weight:700;line-height:1.12;text-align:right}
+    .cal-d.work .cl{color:var(--ok)} .cal-d.folga .cl{color:var(--info)} .cal-d.fer .cl{color:var(--warn)}
+    .cal-lg{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;font-size:12px;color:var(--muted)}
+    .cal-lg span{display:flex;align-items:center;gap:5px}
+    .cal-lg i{width:12px;height:12px;border-radius:4px;display:inline-block;border:1.5px solid}
+    .cal-lg i.work{background:var(--ok-bg);border-color:#bfe4cc}
+    .cal-lg i.folga{background:var(--info-bg);border-color:#c9e3f5}
+    .cal-lg i.fer{background:var(--warn-bg);border-color:#f0dcc0}
     .navbtn svg{width:20px;height:20px;stroke-width:2.5}
     .foot{text-align:center;color:#6f93a8;font-size:12px;padding:12px}
     .hidden{display:none!important}
@@ -402,28 +422,48 @@
           </div>
           <div id="escResumo" class="empty">Carregando...</div>
         </div>
-        <div class="card fade"><h2>Dias do mês</h2><div id="escDias" class="empty">Carregando...</div></div>`;
+        <div class="card fade"><h2>Calendário do mês</h2><div id="escDias" class="empty">Carregando...</div></div>`;
       $("#prevM").onclick=()=>{ let ny=y,nm=m-1; if(nm<1){nm=12;ny--;} state.mesRef={y:ny,m:nm}; renderMinhaEscala(); };
       $("#nextM").onclick=()=>{ let ny=y,nm=m+1; if(nm>12){nm=1;ny++;} state.mesRef={y:ny,m:nm}; renderMinhaEscala(); };
       const { data, error } = await sb.from("escalas").select("*").gte("data",ini).lte("data",fim).order("data");
       if(error){ $("#escDias").innerHTML=`<div class="msg err">${traduz(error.message)}</div>`; return; }
       const esc=data||[];
       if(!esc.length){ $("#escResumo").outerHTML=`<div class="empty">Escala ainda não publicada para ${fmtMesAno(y,m)}.</div>`; $("#escDias").innerHTML=""; return; }
-      const dows=["dom","seg","ter","qua","qui","sex","sáb"];
+      // Dedup por data (no preview, o gestor enxerga a escala de todos —
+      // mantém 1 entrada por dia p/ não inflar contagem nem o calendário).
+      const byDate={}; esc.forEach(e=>{ if(!byDate[e.data]) byDate[e.data]=e; });
       let trabDias=0, folgas=0, prevMin=0;
-      const lab=e=>{ if(e.tipo==="feriado")return["Feriado","i"]; if(e.eh_folga)return["Folga","r"];
-        const en=(e.entrada_prevista||"").slice(0,5), sa=(e.saida_prevista||"").slice(0,5);
-        if(!en)return["—","r"]; return [`${en}–${sa}`,"e"]; };
-      const linhas=esc.map(e=>{ const dow=dows[new Date(e.data+"T12:00:00").getDay()]; const [txt,cls]=lab(e);
+      Object.values(byDate).forEach(e=>{
         if(!e.eh_folga&&e.tipo!=="feriado"&&e.entrada_prevista){ trabDias++; prevMin+=hhmmToMin(e.saida_prevista)-hhmmToMin(e.entrada_prevista)-(e.intervalo_min||0); }
         if(e.eh_folga) folgas++;
-        return `<div class="row"><div><b>${e.data.slice(8)}/${mm}</b> <span class="m">${dow}</span></div><span class="tag ${cls}">${txt}</span></div>`; }).join("");
+      });
       $("#escResumo").outerHTML=`<div class="summary">
         <div class="kpi"><div class="v">${trabDias}</div><div class="l">dias de trabalho</div></div>
         <div class="kpi"><div class="v">${folgas}</div><div class="l">folgas</div></div>
         <div class="kpi"><div class="v">${Math.round(prevMin/60)}h</div><div class="l">horas previstas</div></div>
       </div>`;
-      $("#escDias").innerHTML=linhas;
+      // Grade de calendário
+      const FUSO=(window.PONTO_CONFIG&&window.PONTO_CONFIG.FUSO)||"America/Sao_Paulo";
+      const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:FUSO}).format(new Date());
+      const dim=new Date(y,m,0).getDate();
+      const primeiroDow=new Date(`${y}-${mm}-01T12:00:00`).getDay(); // 0=Dom
+      const head=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map(d=>`<div class="cal-h">${d}</div>`).join("");
+      let cells="";
+      for(let i=0;i<primeiroDow;i++) cells+=`<div class="cal-d blank"></div>`;
+      for(let d=1;d<=dim;d++){
+        const ds=`${y}-${mm}-${String(d).padStart(2,"0")}`, e=byDate[ds];
+        let cls="off", inner="";
+        if(e){
+          if(e.tipo==="feriado"){ cls="fer"; inner=`<span class="cl">Feriado</span>`; }
+          else if(e.eh_folga){ cls="folga"; inner=`<span class="cl">Folga</span>`; }
+          else if(e.entrada_prevista){ cls="work";
+            const en=(e.entrada_prevista||"").slice(0,5), sa=(e.saida_prevista||"").slice(0,5);
+            inner=`<span class="cl">${en}<br>${sa}</span>`; }
+        }
+        cells+=`<div class="cal-d ${cls}${ds===hoje?" today":""}"><span class="dn">${d}</span>${inner}</div>`;
+      }
+      $("#escDias").innerHTML=`<div class="cal">${head}${cells}</div>
+        <div class="cal-lg"><span><i class="work"></i>Trabalho</span><span><i class="folga"></i>Folga</span><span><i class="fer"></i>Feriado</span></div>`;
     }
 
     // ----------------------------------------------------------- BATER PONTO
