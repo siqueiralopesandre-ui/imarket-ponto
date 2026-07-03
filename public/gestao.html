@@ -131,7 +131,7 @@
     const TIPO_LB={entrada:"Entrada",entrada_intervalo:"Saída interv.",retorno_intervalo:"Volta interv.",saida:"Saída"};
     const ICON={prev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
                 next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'};
-    const st={ mes:null, colaboradores:[], sel:"todos", dados:null, charts:[], aba:"dash", escMes:null };
+    const st={ mes:null, colaboradores:[], sel:"todos", dados:null, charts:[], aba:"dash", escMes:null, auditSel:"todos" };
     const CODIGOS={
       D:{tipo:"trabalho",ent:"08:00",sai:"17:30",interv:90,lb:"Diarista 08–17:30"},
       M:{tipo:"trabalho",ent:"08:00",sai:"12:00",interv:0,lb:"Manhã 08–12"},
@@ -246,7 +246,7 @@
             else status={cls:"b-ok",txt:"OK"};
           } else status={cls:"b-folga",txt:"—"};
           if(previstoDia && sai && antMin>TOL_SAIDA) saidasAnt++;
-          dias.push({d,esc,ent,sai,si,vi,trab,atrasoMin,antMin,status,previstoDia,aus,nota});
+          dias.push({d,esc,ent,sai,si,vi,trab,atrasoMin,antMin,status,previstoDia,aus,abono,nota});
         });
         out[c.id]={colab:c,dias,prevMin,trabMin,diasPrev,diasTrab,faltas,atrasos,saidasAnt,atestados:atest,
           ajPagMin,ajFolgaMin,banco:trabMin-prevMin+ajPagMin-ajFolgaMin};
@@ -259,7 +259,8 @@
     function wireTabs(){ document.querySelectorAll(".tabbtn").forEach(b=>b.onclick=()=>{st.aba=b.dataset.aba;render();}); }
     function render(){
       destroyCharts();
-      const tabBar=`<div class="tabsbar"><button class="tabbtn ${st.aba==="dash"?"on":""}" data-aba="dash">Dashboard</button><button class="tabbtn ${st.aba==="escala"?"on":""}" data-aba="escala">Escala</button><button class="tabbtn ${st.aba==="config"?"on":""}" data-aba="config">Config</button></div>`;
+      const tabBar=`<div class="tabsbar"><button class="tabbtn ${st.aba==="dash"?"on":""}" data-aba="dash">Dashboard</button><button class="tabbtn ${st.aba==="audit"?"on":""}" data-aba="audit">Auditoria CLT</button><button class="tabbtn ${st.aba==="escala"?"on":""}" data-aba="escala">Escala</button><button class="tabbtn ${st.aba==="config"?"on":""}" data-aba="config">Config</button></div>`;
+      if(st.aba==="audit"){ screen.innerHTML=tabBar+`<div id="audWrap"><div class="card"><div class="empty"><span class="spin"></span></div></div></div>`; wireTabs(); renderAuditoria(); return; }
       if(st.aba==="escala"){ screen.innerHTML=tabBar+`<div id="escWrap"><div class="card"><div class="empty"><span class="spin"></span></div></div></div>`; wireTabs(); renderEscala(); return; }
       if(st.aba==="config"){ screen.innerHTML=tabBar+`<div id="cfgWrap"><div class="card"><div class="empty"><span class="spin"></span></div></div></div>`; wireTabs(); renderConfig(); return; }
       const {y,m}=st.mes, at=mesAtual(), noLim=(y>at.y)||(y===at.y&&m>=at.m);
@@ -434,6 +435,116 @@
       doc.setFontSize(9); doc.setTextColor(91,118,134);
       doc.text("Assinatura do colaborador",40,yy+14); doc.text("Responsável — iMarket",W-250,yy+14);
       doc.save(`espelho-ponto-${x.colab.nome.split(" ")[0]}-${y}-${String(m).padStart(2,"0")}.pdf`);
+    }
+
+    // ============================================ AUDITORIA CLT (Fase C)
+    // Roda as regras da CLT sobre as batidas reais (reaproveita st.dados).
+    // ALTA = interjornada / hora extra; MÉDIA = intrajornada / registro incompleto.
+    // Abonos (atestado/justificada) NÃO neutralizam violação física de
+    // intervalo (intrajornada) nem de descanso (interjornada) — só registro.
+    function auditarColab(res){
+      const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date());
+      const JP=parseInt(st.config?.jornada_padrao_min||"510",10);
+      const nome=res.colab.nome, mat=res.colab.matricula;
+      const ach=[], completos=[];
+      const add=(d,regra,niv,det)=>ach.push({cid:res.colab.id,mat,nome,data:d,regra,nivel:niv,det});
+      for(const dia of res.dias){
+        const {d,ent,sai,si,vi,trab,previstoDia,abono}=dia;
+        // 1) Intrajornada — intervalo abaixo do mínimo (só quando o intervalo foi batido)
+        if(ent&&sai&&si&&vi&&trab>240){
+          const interv=Math.round((new Date(vi.registrado_em)-new Date(si.registrado_em))/60000);
+          const exig=trab<=360?15:60;
+          if(interv<exig){ const selo=(interv>=58&&interv<=59)?" · padrão 58–59 recorrente":"";
+            add(d,"Intrajornada","media",`Intervalo de ${fmtH(interv)} (mínimo ${fmtH(exig)} para jornada de ${fmtH(trab)})${selo}`); }
+        }
+        // 2) Hora extra — jornada acima da prevista em mais de 2h
+        if(ent&&sai&&trab!=null){ const extra=trab-JP;
+          if(extra>120) add(d,"Hora extra","alta",`Jornada de ${fmtH(trab)} — ${fmtH(extra)} acima da prevista (${fmtH(JP)}); limite legal de HE é 2h/dia`); }
+        // 3) Registro incompleto — só dia previsto, passado e não abonado
+        if(previstoDia&&!abono&&d<hoje&&ent){
+          if(!sai) add(d,"Registro incompleto","media","Saída não registrada (batida esquecida)");
+          else if((si&&!vi)||(vi&&!si)) add(d,"Registro incompleto","media","Batida de intervalo incompleta (falta a saída ou a volta do almoço)");
+          else if(!si&&!vi&&trab>360) add(d,"Registro incompleto","media",`Jornada de ${fmtH(trab)} sem intervalo registrado (provável esquecimento da batida de almoço)`);
+        }
+        if(ent&&sai) completos.push({d,ent:new Date(ent.registrado_em),sai:new Date(sai.registrado_em)});
+      }
+      // 4) Interjornada — descanso entre jornadas < 11h
+      completos.sort((a,b)=>a.ent-b.ent);
+      for(let i=1;i<completos.length;i++){ const rest=Math.round((completos[i].ent-completos[i-1].sai)/60000);
+        if(rest>=0&&rest<660) add(completos[i].d,"Interjornada","alta",`Descanso de ${fmtH(rest)} antes desta jornada (mínimo 11h)`); }
+      return ach;
+    }
+
+    function renderAuditoria(){
+      const {y,m}=st.mes, at=mesAtual(), noLim=(y>at.y)||(y===at.y&&m>=at.m);
+      const alvo = st.auditSel && st.auditSel!=="todos" ? st.colaboradores.filter(c=>c.id===st.auditSel) : st.colaboradores;
+      let achados=[]; alvo.forEach(c=>{ const r=st.dados[c.id]; if(r) achados=achados.concat(auditarColab(r)); });
+      const cont={Intrajornada:0,Interjornada:0,"Hora extra":0,"Registro incompleto":0};
+      achados.forEach(a=>cont[a.regra]=(cont[a.regra]||0)+1);
+      const alta=achados.filter(a=>a.nivel==="alta").length, media=achados.length-alta;
+      achados.sort((a,b)=> b.data.localeCompare(a.data) || a.nome.localeCompare(b.nome));
+      const opts=`<option value="todos">Todos os colaboradores</option>`+
+        st.colaboradores.map(c=>`<option value="${c.id}" ${st.auditSel===c.id?"selected":""}>${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("");
+      const fmtData=d=>{const[Y,M,D]=d.split("-");return `${D}/${M}`;};
+      const nivBadge=n=>n==="alta"?`<span class="badge b-falta">Alta</span>`:`<span class="badge b-atraso">Média</span>`;
+      $("#audWrap").innerHTML=`
+        <div class="card">
+          <div class="controls">
+            <div class="mesnav"><button class="navbtn" id="aPrevM">${ICON.prev}</button><div class="mestitulo">${fmtMesAno(y,m)}</div><button class="navbtn" id="aNextM" ${noLim?"disabled":""}>${ICON.next}</button></div>
+            <select id="audColab" style="margin-left:auto">${opts}</select>
+          </div>
+          <div class="legenda"><b>Auditoria CLT</b> sobre as batidas reais — intrajornada, interjornada, hora extra e registro incompleto. Abonos (atestado, justificada) não neutralizam violação física de intervalo ou descanso.</div>
+          <div class="kpis" style="margin-bottom:14px">
+            <div class="kpi ${achados.length?'alert':'good'}"><div class="v">${achados.length}</div><div class="l">não conformidades</div></div>
+            <div class="kpi ${alta?'alert':''}"><div class="v">${alta}</div><div class="l">gravidade alta</div></div>
+            <div class="kpi ${media?'warn':''}"><div class="v">${media}</div><div class="l">gravidade média</div></div>
+            <div class="kpi ${cont.Intrajornada?'warn':''}"><div class="v">${cont.Intrajornada}</div><div class="l">intrajornada</div></div>
+            <div class="kpi ${cont.Interjornada?'alert':''}"><div class="v">${cont.Interjornada}</div><div class="l">interjornada</div></div>
+            <div class="kpi ${cont["Hora extra"]?'alert':''}"><div class="v">${cont["Hora extra"]}</div><div class="l">hora extra &gt;2h</div></div>
+            <div class="kpi ${cont["Registro incompleto"]?'warn':''}"><div class="v">${cont["Registro incompleto"]}</div><div class="l">registro incompleto</div></div>
+          </div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:10px">
+            <button class="btn ghost" id="audXlsx" style="width:auto;padding:10px 14px" ${achados.length?"":"disabled"}>Exportar Excel</button>
+            <button class="btn" id="audPdf" style="width:auto;padding:10px 14px" ${achados.length?"":"disabled"}>Exportar PDF</button>
+          </div>
+          ${achados.length?`<table><thead><tr><th>Dia</th><th>Colaborador</th><th>Regra</th><th>Grav.</th><th>Detalhe</th></tr></thead><tbody>
+            ${achados.map(a=>`<tr><td>${fmtData(a.data)}</td><td>${a.nome.split(" ").slice(0,2).join(" ")}</td><td>${a.regra}</td><td>${nivBadge(a.nivel)}</td><td style="color:var(--muted)">${a.det}</td></tr>`).join("")}
+          </tbody></table>`:`<div class="empty">Nenhuma não conformidade no período. 👍</div>`}
+        </div>`;
+      $("#aPrevM").onclick=()=>{let ny=y,nm=m-1;if(nm<1){nm=12;ny--;}st.mes={y:ny,m:nm};carregar();};
+      $("#aNextM").onclick=()=>{if(noLim)return;let ny=y,nm=m+1;if(nm>12){nm=1;ny++;}st.mes={y:ny,m:nm};carregar();};
+      $("#audColab").onchange=e=>{st.auditSel=e.target.value;renderAuditoria();};
+      const pdfB=$("#audPdf"); if(pdfB) pdfB.onclick=()=>exportAuditPdf(achados,{alta,media,cont});
+      const xlB=$("#audXlsx"); if(xlB) xlB.onclick=()=>exportAuditXlsx(achados);
+    }
+
+    function exportAuditPdf(achados,resumo){
+      if(!window.jspdf){ alert("Gerador de PDF ainda carregando, tente de novo."); return; }
+      const {y,m}=st.mes; const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:"pt",format:"a4"});
+      doc.setFontSize(16); doc.setTextColor(13,35,48); doc.text("Auditoria CLT — Ponto iMarket",40,48);
+      doc.setFontSize(10); doc.setTextColor(91,118,134);
+      doc.text(`Competência: ${fmtMesAno(y,m)}   ·   Gerado em ${new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:CFG.FUSO}).format(new Date())}`,40,66);
+      doc.setFontSize(10); doc.setTextColor(13,35,48);
+      doc.text(`Total: ${achados.length}   ·   Alta: ${resumo.alta}   ·   Média: ${resumo.media}   ·   Intrajornada: ${resumo.cont.Intrajornada}   ·   Interjornada: ${resumo.cont.Interjornada}   ·   Hora extra: ${resumo.cont["Hora extra"]}   ·   Reg. incompleto: ${resumo.cont["Registro incompleto"]}`,40,86,{maxWidth:515});
+      const body=achados.map(a=>[a.data.split("-").reverse().join("/"),a.nome,a.regra,a.nivel==="alta"?"Alta":"Média",a.det]);
+      doc.autoTable({ startY:104, head:[["Dia","Colaborador","Regra","Grav.","Detalhe"]], body,
+        styles:{fontSize:8,cellPadding:3,textColor:[13,35,48]}, headStyles:{fillColor:[28,127,184],textColor:255},
+        alternateRowStyles:{fillColor:[245,248,250]}, theme:"grid",
+        columnStyles:{0:{cellWidth:44},2:{cellWidth:86},3:{cellWidth:40},4:{cellWidth:250}},
+        didParseCell:(h)=>{ if(h.section==="body"&&h.column.index===3&&h.cell.raw==="Alta"){h.cell.styles.textColor=[220,38,38];h.cell.styles.fontStyle="bold";} } });
+      let yy=doc.lastAutoTable.finalY+24; doc.setFontSize(8); doc.setTextColor(91,118,134);
+      doc.text("Documento gerado automaticamente pelo sistema de ponto iMarket. Violações físicas de intervalo (intrajornada) e descanso (interjornada) não são neutralizadas por justificativas.",40,yy,{maxWidth:515});
+      doc.save(`auditoria-clt-${y}-${String(m).padStart(2,"0")}.pdf`);
+    }
+
+    function exportAuditXlsx(achados){
+      if(typeof XLSX==="undefined"){ alert("Exportador de Excel ainda carregando, tente de novo."); return; }
+      const {y,m}=st.mes;
+      const rows=achados.map(a=>({Dia:a.data.split("-").reverse().join("/"),Matrícula:a.mat,Colaborador:a.nome,Regra:a.regra,Gravidade:a.nivel==="alta"?"Alta":"Média",Detalhe:a.det}));
+      const ws=XLSX.utils.json_to_sheet(rows.length?rows:[{Dia:"",Matrícula:"",Colaborador:"Nenhuma não conformidade",Regra:"",Gravidade:"",Detalhe:""}]);
+      ws["!cols"]=[{wch:10},{wch:11},{wch:26},{wch:18},{wch:9},{wch:62}];
+      const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,`Auditoria ${String(m).padStart(2,"0")}-${y}`);
+      XLSX.writeFile(wb,`auditoria-clt-${y}-${String(m).padStart(2,"0")}.xlsx`);
     }
 
     function chartOpts(){
