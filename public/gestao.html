@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1822" />
+  <title>Gestão · Ponto iMarket</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='11' fill='%230a1822'/><path d='M12 7v5l3 2' stroke='%231c8fc9' stroke-width='2' fill='none' stroke-linecap='round'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    :root{
+      --brand:#1c7fb8; --brand-d:#155a82; --brand-ink:#0a1822;
+      --bg-1:#091621; --bg-2:#10334a; --card:#fff; --ink:#0d2330; --muted:#5b7686;
+      --line:#e4ebf0; --field:#f5f8fa;
+      --ok:#15803d; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fdf2e3;
+      --err:#dc2626; --err-bg:#fdeaea; --info:#0e5a8a; --info-bg:#e6f2fb;
+      --r:18px; --r-sm:12px; --shadow:0 14px 34px rgba(7,18,28,.18),0 2px 6px rgba(7,18,28,.06);
+      --shadow-sm:0 4px 14px rgba(7,18,28,.08); --t:160ms cubic-bezier(.4,0,.2,1);
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;padding:0}
+    body{font-family:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+      background:radial-gradient(120% 80% at 50% 0%,#14405c,var(--bg-2) 42%,var(--bg-1));
+      color:var(--ink);min-height:100dvh;font-size:15px;line-height:1.5}
+    h1,h2,h3,.brand-name{font-family:"Poppins",sans-serif;letter-spacing:-.01em}
+    .wrap{max-width:1000px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+    .topbar{display:flex;align-items:center;justify-content:space-between;
+      padding:18px 18px calc(8px + env(safe-area-inset-top))}
+    .brand{display:flex;align-items:center;gap:11px}
+    .brand .mark{width:40px;height:40px;border-radius:11px;background:#000;display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+    .brand .logo{width:40px;height:40px;border-radius:11px;object-fit:cover;background:#000;box-shadow:var(--shadow-sm)}
+    .brand-name{font-weight:700;font-size:17px;color:#eaf3f9;line-height:1}
+    .brand-name small{display:block;font-family:"Open Sans";font-weight:500;font-size:11px;color:#8fb2c7;letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+    .who{font-size:13px;color:#9fbecf;text-align:right;line-height:1.25}
+    .who b{color:#eaf3f9;display:block;font-size:14px;font-family:"Poppins";font-weight:600}
+    .link{background:none;border:none;color:#9fbecf;font-weight:600;font-size:13px;cursor:pointer;padding:6px 8px;border-radius:8px}
+    .link:hover{background:rgba(255,255,255,.08);color:#fff}
+    .screen{flex:1;padding:6px 16px calc(28px + env(safe-area-inset-bottom))}
+    .card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:20px;margin-bottom:14px}
+    h1{font-size:20px;margin:0 0 2px} h2{font-size:15px;margin:0 0 14px;font-weight:600}
+    .controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+    .mesnav{display:flex;align-items:center;gap:8px}
+    .mestitulo{font-family:"Poppins";font-weight:600;font-size:16px;text-transform:capitalize;color:#eaf3f9;min-width:140px;text-align:center}
+    .navbtn{width:40px;height:40px;border-radius:11px;border:none;background:rgba(255,255,255,.1);
+      cursor:pointer;display:grid;place-items:center;color:#eaf3f9;transition:background var(--t)}
+    .navbtn:hover{background:rgba(255,255,255,.2)} .navbtn:disabled{opacity:.3;cursor:default}
+    .navbtn svg{width:20px;height:20px;stroke-width:2.5}
+    select{padding:11px 13px;border:1.5px solid transparent;border-radius:var(--r-sm);font-size:15px;
+      font-family:inherit;background:#fff;color:var(--ink);outline:none;cursor:pointer;font-weight:600}
+    select:focus{border-color:var(--brand)}
+    .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px}
+    .kpi{background:linear-gradient(160deg,#fff,#f4f9fc);border:1.5px solid var(--line);border-radius:var(--r);padding:15px}
+    .kpi .v{font-size:25px;font-weight:700;font-family:"Poppins";color:var(--brand-ink);font-variant-numeric:tabular-nums}
+    .kpi .l{font-size:12.5px;color:var(--muted);margin-top:3px}
+    .kpi.alert .v{color:var(--err)} .kpi.warn .v{color:var(--warn)} .kpi.good .v{color:var(--ok)}
+    .chartbox{position:relative;height:300px}
+    .chartbox.sm{height:240px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+    table{width:100%;border-collapse:collapse;font-size:13.5px}
+    th,td{padding:9px 8px;text-align:left;border-bottom:1px solid var(--line)}
+    th{font-family:"Poppins";font-weight:600;color:#33505f;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+    td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+    .badge{display:inline-block;padding:2px 8px;border-radius:7px;font-size:11px;font-weight:700;font-family:"Poppins"}
+    .b-ok{background:var(--ok-bg);color:var(--ok)} .b-falta{background:var(--err-bg);color:var(--err)}
+    .b-folga{background:#eef2f5;color:#5b7686} .b-atestado{background:var(--info-bg);color:var(--info)}
+    .b-atraso{background:var(--warn-bg);color:var(--warn)}
+    .btn{min-height:46px;padding:12px 16px;border:none;border-radius:var(--r-sm);font-size:15px;font-weight:700;
+      font-family:"Poppins";cursor:pointer;background:var(--brand);color:#fff;transition:background var(--t)}
+    .btn:hover{background:var(--brand-d)} .btn:disabled{opacity:.5;cursor:default}
+    .btn.ghost{background:var(--field);color:#33505f}
+    label{display:block;font-size:12.5px;font-weight:600;color:#33505f;margin:0 0 6px}
+    input{width:100%;padding:11px;border:1.5px solid var(--line);border-radius:var(--r-sm);font-size:15px;font-family:inherit;background:var(--field)}
+    input:focus{outline:none;border-color:var(--brand);background:#fff}
+    .formrow{display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:10px;align-items:end}
+    @media(max-width:720px){.formrow{grid-template-columns:1fr 1fr}}
+    .msg{padding:11px 13px;border-radius:var(--r-sm);font-size:13.5px;margin:10px 0}
+    .msg.ok{background:var(--ok-bg);color:var(--ok)} .msg.err{background:var(--err-bg);color:var(--err)}
+    .foot{text-align:center;color:#6f93a8;font-size:12px;padding:12px}
+    .empty{text-align:center;color:var(--muted);padding:30px 10px}
+    .spin{width:20px;height:20px;border:2.5px solid #1c7fb855;border-top-color:#1c7fb8;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    .sectitle{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .pill{font-size:12px;font-weight:700;font-family:"Poppins";padding:3px 10px;border-radius:999px;background:var(--info-bg);color:var(--info)}
+    .tabsbar{display:flex;gap:6px;background:rgba(7,18,28,.4);padding:6px;border-radius:14px;margin-bottom:14px}
+    .tabbtn{flex:1;min-height:42px;border:none;border-radius:10px;background:transparent;color:#a9c6d7;font-weight:600;font-family:"Poppins";font-size:14px;cursor:pointer;transition:background var(--t)}
+    .tabbtn.on{background:#fff;color:var(--brand-ink);box-shadow:var(--shadow-sm)}
+    .escrow{display:grid;grid-template-columns:160px 1fr;gap:10px;align-items:center;margin-bottom:10px}
+    @media(max-width:600px){.escrow{grid-template-columns:1fr}}
+    .escrow .nm{font-weight:600;font-family:"Poppins";font-size:14px}
+    .escrow input{font-family:ui-monospace,monospace;letter-spacing:1px}
+    .legenda{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 14px;font-size:12.5px;color:var(--muted)}
+    .legenda b{color:var(--brand-ink)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <img class="logo" src="logo.png" alt="iMarket" onerror="this.style.display='none';document.getElementById('mk').style.display='grid'"/>
+        <span class="mark" id="mk" style="display:none"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1c8fc9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+        <span class="brand-name">Gestão<small>Ponto iMarket</small></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="who" id="who"></div>
+        <a class="link" href="index.html?preview=1" style="text-decoration:none">App do colaborador</a>
+        <button class="link" id="logoutL">Sair</button>
+      </div>
+    </div>
+    <div class="screen" id="screen"><div class="card"><div class="empty"><span class="spin"></span><div style="margin-top:10px">Carregando...</div></div></div></div>
+    <div class="foot">
+      <div style="font-weight:600;color:#a9c6d7">O seu mercado aberto 24 horas por dia e 7 dias por semana dentro do seu condomínio</div>
+      <div style="margin-top:5px;opacity:.8">iMarket · gestão · dados protegidos por LGPD</div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+    const CFG=window.PONTO_CONFIG;
+    const sb=createClient(CFG.SUPABASE_URL,CFG.SUPABASE_ANON_KEY);
+    const $=s=>document.querySelector(s);
+    const screen=$("#screen");
+    const TOL=10; // tolerância de atraso/saída antecipada (min) — Config iMarket
+    const TIPO_LB={entrada:"Entrada",entrada_intervalo:"Saída interv.",retorno_intervalo:"Volta interv.",saida:"Saída"};
+    const ICON={prev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
+                next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'};
+    const st={ mes:null, colaboradores:[], sel:"todos", dados:null, charts:[], aba:"dash", escMes:null };
+    const CODIGOS={
+      D:{tipo:"trabalho",ent:"08:00",sai:"17:30",interv:90,lb:"Diarista 08–17:30"},
+      M:{tipo:"trabalho",ent:"08:00",sai:"12:00",interv:0,lb:"Manhã 08–12"},
+      FG:{tipo:"folga",lb:"Folga"},
+      F:{tipo:"feriado",lb:"Feriado"},
+    };
+    const nextMesStr=()=>{const a=mesAtual();let y=a.y,m=a.m+1;if(m>12){m=1;y++;}return `${y}-${String(m).padStart(2,"0")}`;};
+    const diasNoMes=(y,m)=>new Date(y,m,0).getDate();
+    function codigoDeEsc(e){ if(!e) return ""; if(e.codigo) return e.codigo;
+      if(e.tipo==="feriado") return "F"; if(e.eh_folga||e.tipo==="folga") return "FG";
+      const en=(e.entrada_prevista||"").slice(0,5), sa=(e.saida_prevista||"").slice(0,5);
+      if(en==="08:00"&&sa==="12:00") return "M"; if(en&&sa) return "D"; return ""; }
+
+    const mesAtual=()=>{const f=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO,year:"numeric",month:"2-digit"}).format(new Date());const[y,m]=f.split("-").map(Number);return{y,m};};
+    const fmtMesAno=(y,m)=>new Intl.DateTimeFormat("pt-BR",{month:"long",year:"numeric"}).format(new Date(y,m-1,1));
+    const fmtHora=d=>new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:CFG.FUSO}).format(d);
+    const fmtH=min=>{min=Math.round(min);const s=min<0?"-":"";min=Math.abs(min);return `${s}${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}`;};
+    const primeiro=(y,m)=>`${y}-${String(m).padStart(2,"0")}-01`;
+    const ultimo=(y,m)=>`${y}-${String(m).padStart(2,"0")}-${String(new Date(y,m,0).getDate()).padStart(2,"0")}`;
+    const hhmmToMin=t=>t?(+t.slice(0,2)*60+ +t.slice(3,5)):null;
+    const localMin=d=>{const p=new Intl.DateTimeFormat("en-GB",{timeZone:CFG.FUSO,hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(d);return (+p.find(x=>x.type==="hour").value)*60+(+p.find(x=>x.type==="minute").value);};
+
+    (async function boot(){
+      const {data:{session}}=await sb.auth.getSession();
+      if(!session){ location.href="index.html"; return; }
+      const {data:{user}}=await sb.auth.getUser();
+      const {data:colab}=await sb.from("colaboradores").select("*").eq("id",user.id).maybeSingle();
+      if(!colab || colab.papel!=="gestor"){ location.href="index.html"; return; }
+      $("#who").innerHTML=`<b>${colab.nome.split(" ")[0]}</b>Gestão`;
+      $("#logoutL").onclick=async()=>{await sb.auth.signOut();location.href="index.html";};
+      st.gestorId=user.id;
+      st.mes=mesAtual();
+      await carregar();
+    })();
+
+    async function carregar(){
+      const {y,m}=st.mes, ini=primeiro(y,m), fim=ultimo(y,m);
+      const [c,e,r,a,bj,atOk,atPend,trcP]=await Promise.all([
+        sb.from("colaboradores").select("*").eq("papel","colaborador").eq("ativo",true).order("nome"),
+        sb.from("escalas").select("*").gte("data",ini).lte("data",fim),
+        sb.from("registros_ponto").select("colaborador_id,tipo,registrado_em,data_ref").gte("data_ref",ini).lte("data_ref",fim),
+        sb.from("ausencias").select("*").gte("data",ini).lte("data",fim),
+        sb.from("banco_ajustes").select("*").gte("data",ini).lte("data",fim),
+        sb.from("atestados").select("*").eq("status","aprovado").lte("data_inicio",fim).gte("data_fim",ini),
+        sb.from("atestados").select("*").eq("status","pendente").order("enviado_em",{ascending:true}),
+        sb.from("trocas").select("*").eq("status","aguardando_gestor").order("criado_em",{ascending:true}),
+      ]);
+      st.colaboradores=c.data||[];
+      st.pendentes=atPend.data||[];
+      st.trocasPend=trcP.data||[];
+      st.dados=computar(st.colaboradores, e.data||[], r.data||[], a.data||[], bj.data||[], atOk.data||[]);
+      render();
+    }
+
+    function computar(colabs, escalas, registros, ausencias, ajustes, atestadosOk){
+      const escMap={}, regMap={}, ausMap={}, ajMap={}, atMap={};
+      escalas.forEach(x=>{(escMap[x.colaborador_id]=escMap[x.colaborador_id]||{})[x.data]=x;});
+      registros.forEach(x=>{((regMap[x.colaborador_id]=regMap[x.colaborador_id]||{})[x.data_ref]=
+        (regMap[x.colaborador_id][x.data_ref]||[])).push(x);});
+      ausencias.forEach(x=>{(ausMap[x.colaborador_id]=ausMap[x.colaborador_id]||{})[x.data]=x;});
+      (ajustes||[]).forEach(x=>{((ajMap[x.colaborador_id]=ajMap[x.colaborador_id]||{})[x.data]=
+        (ajMap[x.colaborador_id][x.data]||[])).push(x);});
+      (atestadosOk||[]).forEach(t=>{const set=(atMap[t.colaborador_id]=atMap[t.colaborador_id]||new Set());
+        for(let x=Date.parse(t.data_inicio),f=Date.parse(t.data_fim); x<=f; x+=86400000) set.add(new Date(x).toISOString().slice(0,10));});
+      const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date());
+      const out={};
+      for(const c of colabs){
+        const dias=[]; let prevMin=0,trabMin=0,diasPrev=0,diasTrab=0,faltas=0,atrasos=0,saidasAnt=0,atest=0,ajPagMin=0,ajFolgaMin=0;
+        const datas=new Set([...Object.keys(escMap[c.id]||{}),...Object.keys(regMap[c.id]||{}),...Object.keys(ausMap[c.id]||{}),...Object.keys(ajMap[c.id]||{})]);
+        [...datas].sort().forEach(d=>{
+          if(d>hoje) return; // não conta dias futuros ainda não ocorridos
+          const ajs=ajMap[c.id]?.[d]||[];
+          const pagDia=ajs.filter(a=>a.tipo==="pagamento").reduce((s,a)=>s+a.minutos,0);
+          const folgaDia=ajs.filter(a=>a.tipo==="folga").reduce((s,a)=>s+a.minutos,0);
+          ajPagMin+=pagDia; ajFolgaMin+=folgaDia;
+          const esc=escMap[c.id]?.[d], regs=(regMap[c.id]?.[d]||[]), aus=ausMap[c.id]?.[d];
+          const get=t=>regs.find(x=>x.tipo===t);
+          const ent=get("entrada"), sai=get("saida"), si=get("entrada_intervalo"), vi=get("retorno_intervalo");
+          const compareceu=!!ent;
+          const previstoDia = esc && !esc.eh_folga && esc.entrada_prevista;
+          const jornadaPrev = (esc && esc.entrada_prevista && esc.saida_prevista)
+            ? (hhmmToMin(esc.saida_prevista)-hhmmToMin(esc.entrada_prevista)-(esc.intervalo_min||0)) : null;
+          let trab=null;
+          if(ent&&sai){ trab=(new Date(sai.registrado_em)-new Date(ent.registrado_em))/60000;
+            if(si&&vi) trab-=(new Date(vi.registrado_em)-new Date(si.registrado_em))/60000; trab=Math.max(0,Math.round(trab)); }
+          // atraso
+          let atrasoMin=0;
+          if(previstoDia && ent){ atrasoMin=Math.max(0, localMin(new Date(ent.registrado_em))-hhmmToMin(esc.entrada_prevista)); }
+          let antMin=0;
+          if(previstoDia && sai && esc.saida_prevista){ antMin=Math.max(0, hhmmToMin(esc.saida_prevista)-localMin(new Date(sai.registrado_em))); }
+          // acumula
+          const abono = !!aus || (atMap[c.id] && atMap[c.id].has(d));
+          if(previstoDia){ diasPrev++; if(jornadaPrev && !abono) prevMin+=jornadaPrev; }
+          if(compareceu){ diasTrab++; if(trab) trabMin+=trab; }
+          let status, nota = pagDia>0 ? `pagou ${fmtH(pagDia)}` : "";
+          if(abono){ atest++; status={cls:"b-atestado",txt: aus?(aus.tipo==="atestado"?"Atestado":"Justificada"):"Atestado"}; }
+          else if(folgaDia>0 && !compareceu){ status={cls:"b-folga",txt:`Folga (banco ${fmtH(folgaDia)})`}; }
+          else if(esc && esc.tipo==="feriado"){ status = compareceu?{cls:"b-ok",txt:"Feriado (trab.)"}:{cls:"b-atestado",txt:"Feriado"}; }
+          else if(esc && esc.eh_folga){ status={cls:"b-folga",txt:"Folga"}; }
+          else if(previstoDia && !compareceu){ faltas++; status={cls:"b-falta",txt:"Falta"}; }
+          else if(compareceu){
+            if(previstoDia && atrasoMin>TOL){ atrasos++; status={cls:"b-atraso",txt:`Atraso ${atrasoMin}min`}; }
+            else status={cls:"b-ok",txt:"OK"};
+          } else status={cls:"b-folga",txt:"—"};
+          if(previstoDia && sai && antMin>TOL) saidasAnt++;
+          dias.push({d,esc,ent,sai,si,vi,trab,atrasoMin,antMin,status,previstoDia,aus,nota});
+        });
+        out[c.id]={colab:c,dias,prevMin,trabMin,diasPrev,diasTrab,faltas,atrasos,saidasAnt,atestados:atest,
+          ajPagMin,ajFolgaMin,banco:trabMin-prevMin+ajPagMin-ajFolgaMin};
+      }
+      return out;
+    }
+
+    function destroyCharts(){ st.charts.forEach(c=>c.destroy()); st.charts=[]; }
+
+    function wireTabs(){ document.querySelectorAll(".tabbtn").forEach(b=>b.onclick=()=>{st.aba=b.dataset.aba;render();}); }
+    function render(){
+      destroyCharts();
+      const tabBar=`<div class="tabsbar"><button class="tabbtn ${st.aba==="dash"?"on":""}" data-aba="dash">Dashboard</button><button class="tabbtn ${st.aba==="escala"?"on":""}" data-aba="escala">Escala</button></div>`;
+      if(st.aba==="escala"){ screen.innerHTML=tabBar+`<div id="escWrap"><div class="card"><div class="empty"><span class="spin"></span></div></div></div>`; wireTabs(); renderEscala(); return; }
+      const {y,m}=st.mes, at=mesAtual(), noLim=(y>at.y)||(y===at.y&&m>=at.m);
+      const opts=`<option value="todos">Todos os colaboradores</option>`+
+        st.colaboradores.map(c=>`<option value="${c.id}" ${st.sel===c.id?"selected":""}>${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("");
+      screen.innerHTML=tabBar+`
+        <div class="card">
+          <div class="controls">
+            <div class="mesnav">
+              <button class="navbtn" id="prevM">${ICON.prev}</button>
+              <div class="mestitulo">${fmtMesAno(y,m)}</div>
+              <button class="navbtn" id="nextM" ${noLim?"disabled":""}>${ICON.next}</button>
+            </div>
+            <select id="selColab" style="margin-left:auto">${opts}</select>
+          </div>
+          <div id="conteudo"></div>
+        </div>
+        <div class="card">
+          <h2>Registrar atestado / ausência justificada</h2>
+          <div class="formrow">
+            <div><label>Colaborador</label><select id="aColab">${st.colaboradores.map(c=>`<option value="${c.id}">${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("")}</select></div>
+            <div><label>Data</label><input type="date" id="aData" value="${ultimo(y,m)}" min="${primeiro(y,m)}" max="${ultimo(y,m)}"></div>
+            <div><label>Tipo</label><select id="aTipo"><option value="atestado">Atestado</option><option value="justificada">Justificada</option><option value="outro">Outro</option></select></div>
+            <div><button class="btn" id="aSalvar">Registrar</button></div>
+          </div>
+          <div id="aMsg"></div>
+        </div>
+        <div class="card">
+          <h2>Banco de horas — lançamentos</h2>
+          <div class="formrow">
+            <div><label>Colaborador</label><select id="bColab">${st.colaboradores.map(c=>`<option value="${c.id}">${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("")}</select></div>
+            <div><label>Data</label><input type="date" id="bData" value="${ultimo(y,m)}" min="${primeiro(y,m)}" max="${ultimo(y,m)}"></div>
+            <div><label>Horas (hh:mm)</label><input type="time" id="bHoras" value="01:00" step="300"></div>
+            <div style="display:flex;gap:8px">
+              <button class="btn" id="bPagar">Pagar horas</button>
+              <button class="btn ghost" id="bFolgar">Folgar</button>
+            </div>
+          </div>
+          <div style="margin-top:10px"><input id="bObs" placeholder="Observação (opcional)"></div>
+          <div id="bMsg"></div>
+          <p style="font-size:12.5px;color:var(--muted);margin:10px 0 0">
+            <b>Pagar horas</b>: soma ao banco (abate horas devidas no dia informado).
+            <b>Folgar</b>: desconta do banco (usa o crédito) e neutraliza a falta do dia.</p>
+        </div>
+        <div class="card">
+          <div class="sectitle"><h2 style="margin:0">Atestados para aprovar</h2>${st.pendentes&&st.pendentes.length?`<span class="pill">${st.pendentes.length} pendente(s)</span>`:""}</div>
+          <div id="pendList"><div class="empty">Carregando...</div></div>
+        </div>
+        <div class="card">
+          <div class="sectitle"><h2 style="margin:0">Trocas para aprovar</h2>${st.trocasPend&&st.trocasPend.length?`<span class="pill">${st.trocasPend.length} pendente(s)</span>`:""}</div>
+          <div id="trocaList"><div class="empty">Carregando...</div></div>
+        </div>`;
+      $("#prevM").onclick=()=>{let ny=y,nm=m-1;if(nm<1){nm=12;ny--;}st.mes={y:ny,m:nm};carregar();};
+      $("#nextM").onclick=()=>{if(noLim)return;let ny=y,nm=m+1;if(nm>12){nm=1;ny++;}st.mes={y:ny,m:nm};carregar();};
+      $("#selColab").onchange=e=>{st.sel=e.target.value;render();};
+      $("#aSalvar").onclick=salvarAusencia;
+      $("#bPagar").onclick=()=>salvarAjuste("pagamento");
+      $("#bFolgar").onclick=()=>salvarAjuste("folga");
+      wireTabs();
+      renderPendentes();
+      renderTrocasGestor();
+      st.sel==="todos" ? renderTodos() : renderColab(st.sel);
+    }
+
+    function renderTodos(){
+      const arr=st.colaboradores.map(c=>st.dados[c.id]).filter(Boolean);
+      const tot=arr.reduce((a,x)=>({trab:a.trab+x.trabMin,faltas:a.faltas+x.faltas,atrasos:a.atrasos+x.atrasos,banco:a.banco+x.banco,atest:a.atest+x.atestados}),{trab:0,faltas:0,atrasos:0,banco:0,atest:0});
+      $("#conteudo").innerHTML=`
+        <div class="kpis" style="margin-bottom:16px">
+          <div class="kpi"><div class="v">${arr.length}</div><div class="l">colaboradores</div></div>
+          <div class="kpi good"><div class="v">${fmtH(tot.trab)}</div><div class="l">horas trabalhadas</div></div>
+          <div class="kpi ${tot.faltas?'alert':''}"><div class="v">${tot.faltas}</div><div class="l">faltas</div></div>
+          <div class="kpi ${tot.atrasos?'warn':''}"><div class="v">${tot.atrasos}</div><div class="l">atrasos (>${TOL}min)</div></div>
+          <div class="kpi"><div class="v">${tot.atest}</div><div class="l">atestados</div></div>
+          <div class="kpi ${tot.banco<0?'alert':'good'}"><div class="v">${fmtH(tot.banco)}</div><div class="l">banco de horas</div></div>
+        </div>
+        <div class="grid2">
+          <div><div class="sectitle"><h2>Horas: trabalhadas × previstas</h2></div><div class="chartbox"><canvas id="chHoras"></canvas></div></div>
+          <div><div class="sectitle"><h2>Faltas e atrasos por colaborador</h2></div><div class="chartbox"><canvas id="chFalt"></canvas></div></div>
+        </div>
+        <div style="margin-top:8px"><table><thead><tr><th>Colaborador</th><th class="num">Dias trab.</th><th class="num">Faltas</th><th class="num">Atrasos</th><th class="num">Atestados</th><th class="num">Horas</th><th class="num">Banco</th></tr></thead><tbody>
+          ${arr.map(x=>`<tr><td>${x.colab.nome.split(" ").slice(0,2).join(" ")}</td><td class="num">${x.diasTrab}/${x.diasPrev}</td><td class="num">${x.faltas}</td><td class="num">${x.atrasos}</td><td class="num">${x.atestados}</td><td class="num">${fmtH(x.trabMin)}</td><td class="num" style="color:${x.banco<0?'var(--err)':'var(--ok)'}">${fmtH(x.banco)}</td></tr>`).join("")}
+        </tbody></table></div>`;
+      const labels=arr.map(x=>x.colab.nome.split(" ")[0]);
+      st.charts.push(new Chart($("#chHoras"),{type:"bar",data:{labels,datasets:[
+        {label:"Trabalhadas",data:arr.map(x=>+(x.trabMin/60).toFixed(1)),backgroundColor:"#1c7fb8"},
+        {label:"Previstas",data:arr.map(x=>+(x.prevMin/60).toFixed(1)),backgroundColor:"#cfdde6"}]},
+        options:chartOpts("h")}));
+      st.charts.push(new Chart($("#chFalt"),{type:"bar",data:{labels,datasets:[
+        {label:"Faltas",data:arr.map(x=>x.faltas),backgroundColor:"#dc2626"},
+        {label:"Atrasos",data:arr.map(x=>x.atrasos),backgroundColor:"#b45309"}]},
+        options:chartOpts()}));
+    }
+
+    function renderColab(id){
+      const x=st.dados[id]; if(!x){$("#conteudo").innerHTML=`<div class="empty">Sem dados.</div>`;return;}
+      $("#conteudo").innerHTML=`
+        <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+          <button class="btn" id="espelhoBtn" style="width:auto;padding:10px 16px">Baixar espelho de ponto (PDF)</button>
+        </div>
+        <div class="kpis" style="margin-bottom:16px">
+          <div class="kpi"><div class="v">${x.diasTrab}/${x.diasPrev}</div><div class="l">dias trabalhados / previstos</div></div>
+          <div class="kpi good"><div class="v">${fmtH(x.trabMin)}</div><div class="l">horas trabalhadas</div></div>
+          <div class="kpi ${x.faltas?'alert':''}"><div class="v">${x.faltas}</div><div class="l">faltas</div></div>
+          <div class="kpi ${x.atrasos?'warn':''}"><div class="v">${x.atrasos}</div><div class="l">atrasos (>${TOL}min)</div></div>
+          <div class="kpi ${x.saidasAnt?'warn':''}"><div class="v">${x.saidasAnt}</div><div class="l">saídas antecip.</div></div>
+          <div class="kpi"><div class="v">${x.atestados}</div><div class="l">atestados</div></div>
+          <div class="kpi ${x.banco<0?'alert':'good'}"><div class="v">${fmtH(x.banco)}</div><div class="l">banco de horas</div></div>
+        </div>
+        <div class="grid2">
+          <div><div class="sectitle"><h2>Distribuição dos dias</h2></div><div class="chartbox sm"><canvas id="chPie"></canvas></div></div>
+          <div><div class="sectitle"><h2>Atraso por dia (min)</h2></div><div class="chartbox sm"><canvas id="chAtr"></canvas></div></div>
+        </div>
+        <div style="margin-top:8px"><table><thead><tr><th>Dia</th><th>Previsto</th><th>Entrada</th><th>Almoço</th><th>Saída</th><th class="num">Horas</th><th>Status</th></tr></thead><tbody>
+          ${x.dias.map(dd=>{const[Y,M,D]=dd.d.split("-");
+            const prev=dd.esc&&!dd.esc.eh_folga&&dd.esc.entrada_prevista?`${dd.esc.entrada_prevista}–${dd.esc.saida_prevista||"?"}`:(dd.esc&&dd.esc.eh_folga?"Folga":"—");
+            const alm = dd.si?(fmtHora(new Date(dd.si.registrado_em))+(dd.vi?" – "+fmtHora(new Date(dd.vi.registrado_em)):" …")):"—";
+            return `<tr><td>${D}/${M}</td><td style="color:var(--muted)">${prev}</td>
+              <td>${dd.ent?fmtHora(new Date(dd.ent.registrado_em)):"—"}</td>
+              <td style="color:var(--muted)">${alm}</td>
+              <td>${dd.sai?fmtHora(new Date(dd.sai.registrado_em)):"—"}</td>
+              <td class="num">${dd.trab?fmtH(dd.trab):"—"}</td>
+              <td><span class="badge ${dd.status.cls}">${dd.status.txt}</span>${dd.nota?` <span style="color:var(--muted);font-size:11px">· ${dd.nota}</span>`:""}</td></tr>`;}).join("")}
+        </tbody></table></div>`;
+      const folgas=x.dias.filter(d=>d.esc&&d.esc.eh_folga&&!d.aus).length;
+      const okDias=x.diasTrab - x.atrasos;
+      st.charts.push(new Chart($("#chPie"),{type:"doughnut",data:{labels:["No horário","Atrasos","Faltas","Atestados","Folgas"],
+        datasets:[{data:[Math.max(0,okDias),x.atrasos,x.faltas,x.atestados,folgas],
+          backgroundColor:["#15803d","#b45309","#dc2626","#0e5a8a","#cfdde6"]}]},
+        options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{font:{family:"Open Sans"},boxWidth:12}}}}}));
+      const diasAtr=x.dias.filter(d=>d.previstoDia);
+      st.charts.push(new Chart($("#chAtr"),{type:"bar",data:{labels:diasAtr.map(d=>d.d.slice(8)),
+        datasets:[{label:"Atraso (min)",data:diasAtr.map(d=>d.atrasoMin),
+          backgroundColor:diasAtr.map(d=>d.atrasoMin>TOL?"#b45309":"#cfdde6")}]},
+        options:chartOpts()}));
+      $("#espelhoBtn").onclick=()=>gerarEspelho(id);
+    }
+
+    function gerarEspelho(id){
+      const x=st.dados[id]; if(!x) return;
+      if(!window.jspdf){ alert("Gerador de PDF ainda carregando, tente de novo."); return; }
+      const {y,m}=st.mes; const { jsPDF }=window.jspdf; const doc=new jsPDF({unit:"pt",format:"a4"});
+      const W=doc.internal.pageSize.getWidth(); const dows=["dom","seg","ter","qua","qui","sex","sáb"];
+      doc.setFontSize(16); doc.setTextColor(13,35,48); doc.text("Espelho de Ponto — iMarket",40,48);
+      doc.setFontSize(10); doc.setTextColor(91,118,134); doc.text(`Competência: ${fmtMesAno(y,m)}`,40,66);
+      doc.setFontSize(11); doc.setTextColor(13,35,48);
+      doc.text(`${x.colab.nome}   ·   Matrícula ${x.colab.matricula}   ·   ${x.colab.cargo||""}`,40,88);
+      doc.setFontSize(9); doc.setTextColor(91,118,134);
+      doc.text("Empresa: _______________________________    CNPJ: ____________________",40,106);
+      const body=x.dias.map(dd=>{
+        const [Y,M,D]=dd.d.split("-"); const dow=dows[new Date(dd.d+"T12:00:00").getDay()];
+        const prev=dd.esc&&!dd.esc.eh_folga&&dd.esc.entrada_prevista
+          ? `${(dd.esc.entrada_prevista||"").slice(0,5)}–${(dd.esc.saida_prevista||"").slice(0,5)}`
+          : (dd.esc&&dd.esc.tipo==="feriado"?"Feriado":(dd.esc&&dd.esc.eh_folga?"Folga":"—"));
+        const alm=dd.si?(fmtHora(new Date(dd.si.registrado_em))+(dd.vi?"–"+fmtHora(new Date(dd.vi.registrado_em)):"")):"—";
+        return [`${D}/${M}`,dow,prev,dd.ent?fmtHora(new Date(dd.ent.registrado_em)):"—",alm,
+                dd.sai?fmtHora(new Date(dd.sai.registrado_em)):"—",dd.trab?fmtH(dd.trab):"—",dd.status.txt];
+      });
+      doc.autoTable({ startY:120, head:[["Dia","Sem","Previsto","Entrada","Almoço","Saída","Horas","Situação"]], body,
+        styles:{fontSize:8,cellPadding:3,textColor:[13,35,48]}, headStyles:{fillColor:[28,127,184],textColor:255},
+        alternateRowStyles:{fillColor:[245,248,250]}, theme:"grid",
+        columnStyles:{0:{cellWidth:40},1:{cellWidth:32},7:{cellWidth:78}} });
+      let yy=doc.lastAutoTable.finalY+20; doc.setFontSize(10); doc.setTextColor(13,35,48);
+      doc.text(`Dias trabalhados: ${x.diasTrab}/${x.diasPrev}    ·    Horas trabalhadas: ${fmtH(x.trabMin)}    ·    Previstas: ${fmtH(x.prevMin)}    ·    Banco: ${fmtH(x.banco)}`,40,yy);
+      yy+=16; doc.text(`Faltas: ${x.faltas}    ·    Atrasos (>${TOL}min): ${x.atrasos}    ·    Saídas antecipadas: ${x.saidasAnt}    ·    Atestados: ${x.atestados}`,40,yy);
+      yy+=56; doc.setDrawColor(150); doc.line(40,yy,250,yy); doc.line(W-250,yy,W-40,yy);
+      doc.setFontSize(9); doc.setTextColor(91,118,134);
+      doc.text("Assinatura do colaborador",40,yy+14); doc.text("Responsável — iMarket",W-250,yy+14);
+      doc.save(`espelho-ponto-${x.colab.nome.split(" ")[0]}-${y}-${String(m).padStart(2,"0")}.pdf`);
+    }
+
+    function chartOpts(){
+      return {responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{position:"bottom",labels:{font:{family:"Open Sans"},boxWidth:12}}},
+        scales:{y:{beginAtZero:true,ticks:{font:{family:"Open Sans"}}},x:{ticks:{font:{family:"Open Sans"}}}}};
+    }
+
+    async function salvarAusencia(){
+      const colaborador_id=$("#aColab").value, data=$("#aData").value, tipo=$("#aTipo").value, b=$("#aSalvar");
+      if(!data){ $("#aMsg").innerHTML=`<div class="msg err">Escolha a data.</div>`; return; }
+      b.disabled=true; b.textContent="Salvando...";
+      const {error}=await sb.from("ausencias").upsert({colaborador_id,data,tipo},{onConflict:"colaborador_id,data"});
+      b.disabled=false; b.textContent="Registrar";
+      if(error){ $("#aMsg").innerHTML=`<div class="msg err">Erro: ${error.message}</div>`; return; }
+      $("#aMsg").innerHTML=`<div class="msg ok">Registrado. Atualizando indicadores...</div>`;
+      await carregar();
+    }
+
+    async function salvarAjuste(tipo){
+      const colaborador_id=$("#bColab").value, data=$("#bData").value, minutos=hhmmToMin($("#bHoras").value), obs=$("#bObs").value.trim();
+      if(!data){ $("#bMsg").innerHTML=`<div class="msg err">Escolha a data.</div>`; return; }
+      if(!minutos||minutos<=0){ $("#bMsg").innerHTML=`<div class="msg err">Informe as horas (maior que zero).</div>`; return; }
+      const b1=$("#bPagar"),b2=$("#bFolgar"); b1.disabled=b2.disabled=true;
+      const {error}=await sb.from("banco_ajustes").insert({colaborador_id,data,tipo,minutos,observacao:obs||null,criado_por:st.gestorId});
+      b1.disabled=b2.disabled=false;
+      if(error){ $("#bMsg").innerHTML=`<div class="msg err">Erro: ${error.message}</div>`; return; }
+      $("#bMsg").innerHTML=`<div class="msg ok">${tipo==="pagamento"?"Pagamento":"Folga"} de ${fmtH(minutos)} registrado. Atualizando...</div>`;
+      await carregar();
+    }
+
+    // ---------------------------------------------- APROVAÇÃO DE ATESTADOS
+    function renderPendentes(){
+      const el=$("#pendList"); if(!el) return;
+      const pend=st.pendentes||[];
+      if(!pend.length){ el.innerHTML=`<div class="empty">Nenhum atestado pendente.</div>`; return; }
+      const nome=id=>{const c=st.colaboradores.find(x=>x.id===id);return c?c.nome.split(" ").slice(0,2).join(" "):"Colaborador";};
+      const br=d=>d.split("-").reverse().join("/");
+      el.innerHTML=pend.map(a=>`
+        <div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center">
+            <div><b>${nome(a.colaborador_id)}</b> · ${br(a.data_inicio)}${a.data_fim!==a.data_inicio?` a ${br(a.data_fim)}`:""}
+              ${a.observacao?`<div style="color:var(--muted);font-size:13px">${a.observacao}</div>`:""}</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              ${a.arquivo_path?`<button class="link" data-ver="${a.id}" style="color:var(--brand);font-weight:600">Ver arquivo</button>`:`<span style="color:var(--muted);font-size:12px">sem arquivo</span>`}
+              <button class="btn" data-ap="${a.id}" style="min-height:38px;padding:8px 14px">Aprovar</button>
+              <button class="btn ghost" data-rj="${a.id}" style="min-height:38px;padding:8px 14px">Rejeitar</button>
+            </div>
+          </div>
+        </div>`).join("");
+      el.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>verArquivo(b.dataset.ver));
+      el.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>avaliarAtestado(b.dataset.ap,"aprovado"));
+      el.querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>avaliarAtestado(b.dataset.rj,"rejeitado"));
+    }
+    async function verArquivo(id){
+      const a=(st.pendentes||[]).find(x=>x.id===id); if(!a||!a.arquivo_path) return;
+      const {data,error}=await sb.storage.from("atestados").createSignedUrl(a.arquivo_path,300);
+      if(error||!data){ alert("Não foi possível abrir o arquivo."); return; }
+      window.open(data.signedUrl,"_blank");
+    }
+    async function avaliarAtestado(id,status){
+      let motivo=null;
+      if(status==="rejeitado"){ motivo=prompt("Motivo da rejeição (opcional):"); if(motivo===null) return; }
+      const {error}=await sb.from("atestados").update({status,avaliado_por:st.gestorId,
+        avaliado_em:new Date().toISOString(),motivo_rejeicao:motivo||null}).eq("id",id);
+      if(error){ alert("Erro: "+error.message); return; }
+      await carregar();
+    }
+
+    // ---------------------------------------------- APROVAÇÃO DE TROCAS
+    function renderTrocasGestor(){
+      const el=$("#trocaList"); if(!el) return;
+      const ts=st.trocasPend||[];
+      if(!ts.length){ el.innerHTML=`<div class="empty">Nenhuma troca pendente.</div>`; return; }
+      const nome=id=>{const c=st.colaboradores.find(x=>x.id===id);return c?c.nome.split(" ").slice(0,2).join(" "):"Colaborador";};
+      const br=d=>d.split("-").reverse().join("/");
+      el.innerHTML=ts.map(t=>`
+        <div style="border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;align-items:center">
+            <div><b>${nome(t.solicitante_id)}</b> ↔ <b>${nome(t.colega_id)}</b>
+              <div style="color:var(--muted);font-size:13px">${nome(t.solicitante_id).split(" ")[0]} larga ${br(t.data_a)} e pega ${br(t.data_b)}; ${nome(t.colega_id).split(" ")[0]} faz o inverso.</div></div>
+            <div style="display:flex;gap:6px">
+              <button class="btn" data-ap="${t.id}" style="min-height:38px;padding:8px 14px">Aprovar</button>
+              <button class="btn ghost" data-rj="${t.id}" style="min-height:38px;padding:8px 14px">Rejeitar</button>
+            </div>
+          </div>
+        </div>`).join("");
+      el.querySelectorAll("[data-ap]").forEach(b=>b.onclick=()=>avaliarTroca(b.dataset.ap,"aprovar"));
+      el.querySelectorAll("[data-rj]").forEach(b=>b.onclick=()=>avaliarTroca(b.dataset.rj,"rejeitar"));
+    }
+    async function avaliarTroca(troca_id,action){
+      let motivo=null;
+      if(action==="rejeitar"){ motivo=prompt("Motivo (opcional):"); if(motivo===null) return; }
+      const {data,error}=await sb.functions.invoke("trocas",{body:{action,troca_id,motivo}});
+      if(error||!data?.ok){ alert("Não foi possível: "+(data?.motivo||"erro")); return; }
+      await carregar();
+    }
+
+    // ---------------------------------------------- EDITOR DE ESCALA
+    async function renderEscala(){
+      if(!st.escMes) st.escMes=nextMesStr();
+      const [y,m]=st.escMes.split("-").map(Number), dnm=diasNoMes(y,m);
+      const ini=`${st.escMes}-01`, fim=`${st.escMes}-${String(dnm).padStart(2,"0")}`;
+      const {data:esc}=await sb.from("escalas").select("*").gte("data",ini).lte("data",fim);
+      const byColab={};
+      (esc||[]).forEach(e=>{const dd=+e.data.slice(8,10);(byColab[e.colaborador_id]=byColab[e.colaborador_id]||{})[dd]=codigoDeEsc(e);});
+      const rows=st.colaboradores.map(c=>{
+        const arr=[]; for(let d=1;d<=dnm;d++) arr.push(byColab[c.id]?.[d]||"");
+        return `<div class="escrow"><div class="nm">${c.nome.split(" ").slice(0,2).join(" ")}</div>
+          <input id="esc_${c.id}" value="${arr.join(" ").trim()}" placeholder="${dnm} códigos (ex.: F M D D D D D ...)" /></div>`;
+      }).join("");
+      $("#escWrap").innerHTML=`<div class="card">
+        <div class="controls"><h2 style="margin:0">Escala (previsto) do mês</h2>
+          <input type="month" id="escMes" value="${st.escMes}" style="margin-left:auto"></div>
+        <div class="legenda">${Object.entries(CODIGOS).map(([k,v])=>`<span><b>${k}</b> = ${v.lb}</span>`).join("")}</div>
+        <p style="font-size:13px;color:var(--muted);margin:0 0 14px">Informe <b>${dnm}</b> códigos por colaborador (um por dia, separados por espaço, começando no dia 1). Esta escala é o "previsto" que alimenta a análise das batidas.</p>
+        ${rows}
+        <div id="escMsg"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn ghost" id="escGerar">Gerar automático</button>
+          <button class="btn ghost" id="escImportar">Importar Excel</button>
+          <input type="file" id="escFile" accept=".xlsx,.xls" style="display:none">
+          <button class="btn" id="escSalvar">Salvar escala de ${fmtMesAno(y,m)}</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--muted);margin:10px 0 0">"Gerar automático" preenche pelas regras. "Importar Excel" lê sua planilha (nomes nas linhas, dias nas colunas, códigos D/M/FG/F). Sempre revise, marque feriados como <b>F</b> e salve.</p>
+      </div>`;
+      $("#escMes").onchange=e=>{st.escMes=e.target.value;renderEscala();};
+      $("#escSalvar").onclick=()=>salvarEscala(y,m,dnm);
+      $("#escGerar").onclick=()=>{ gerarAuto(y,m,dnm);
+        $("#escMsg").innerHTML=`<div class="msg ok">Escala gerada pelas regras. Revise, ajuste feriados (F) e clique em Salvar.</div>`; };
+      $("#escImportar").onclick=()=>$("#escFile").click();
+      $("#escFile").onchange=e=>{ if(e.target.files[0]) importarExcel(e.target.files[0],y,m,dnm); e.target.value=""; };
+    }
+
+    const deb=s=>(""+s).normalize("NFD").replace(/[̀-ͯ]/g,"").toUpperCase().trim();
+    function normCod(v){ const s=deb(v);
+      if(!s) return "";
+      if(s==="D"||s.startsWith("DIARI")) return "D";
+      if(s==="M"||s.startsWith("MANH")) return "M";
+      if(s==="FG"||s.startsWith("FOLG")) return "FG";
+      if(s==="F"||s.startsWith("FERI")) return "F";
+      return "?"+s;
+    }
+    function extrairGrade(rows,dnm){
+      let hdr=-1, dayCol={};
+      for(let i=0;i<rows.length;i++){
+        const map={};
+        (rows[i]||[]).forEach((cell,j)=>{ const t=(""+cell).trim(); const n=parseInt(t,10);
+          if(n>=1&&n<=31 && t===String(n) && !(n in map)) map[n]=j; });
+        if(Object.keys(map).length>=Math.min(20,dnm-3)){ hdr=i; dayCol=map; break; }
+      }
+      if(hdr<0) return null;
+      const linhas=rows.slice(hdr+1);
+      return { dias:Object.keys(dayCol).length,
+        porNome(nome){ const alvo=deb(nome.split(" ")[0]);
+          for(const r of linhas){ const txt=deb((r||[]).slice(0,3).join(" "));
+            if(alvo && txt.includes(alvo)){ const arr=[];
+              for(let d=1;d<=dnm;d++){ const j=dayCol[d]; arr.push(j!=null?normCod(r[j]):""); } return arr; } }
+          return null; } };
+    }
+    const MESES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+    async function importarExcel(file,y,m,dnm){
+      try{
+        if(typeof XLSX==="undefined"){ $("#escMsg").innerHTML=`<div class="msg err">Leitor de Excel ainda carregando, tente de novo.</div>`; return; }
+        const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});
+        const alvoMes=deb(MESES[m-1]), alvoAno=String(y);
+        const aba = wb.SheetNames.find(sn=>{const d=deb(sn);return d.includes(alvoMes)&&d.includes(alvoAno);})
+                 || wb.SheetNames.find(sn=>deb(sn).includes(alvoMes));
+        if(!aba){ $("#escMsg").innerHTML=`<div class="msg err">Não encontrei a aba de <b>${MESES[m-1]} ${y}</b> no arquivo. Abas: ${wb.SheetNames.join(", ")}. Crie a aba do mês ou selecione um mês existente.</div>`; return; }
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[aba],{header:1,raw:false,defval:""});
+        const melhor=extrairGrade(rows,dnm);
+        if(!melhor){ $("#escMsg").innerHTML=`<div class="msg err">Achei a aba <b>${aba}</b>, mas não localizei a linha dos dias (1, 2, 3…). Confira o formato.</div>`; return; }
+        const ap=[], nao=[]; let desc=0;
+        for(const c of st.colaboradores){
+          const arr=melhor.porNome(c.nome);
+          if(!arr){ nao.push(c.nome.split(" ")[0]); continue; }
+          const codes=arr.map(x=>{ if(x&&x.startsWith("?")){desc++;return "";} return x; });
+          $("#esc_"+c.id).value=codes.slice(0,dnm).join(" ").trim(); ap.push(c.nome.split(" ")[0]);
+        }
+        let t=`Aba <b>${aba}</b> — importado: <b>${ap.join(", ")||"ninguém"}</b>.`;
+        if(nao.length) t+=` Não achei no arquivo: ${nao.join(", ")}.`;
+        if(desc) t+=` ${desc} código(s) não reconhecido(s), deixados em branco.`;
+        t+=` Revise e clique em Salvar.`;
+        $("#escMsg").innerHTML=`<div class="msg ${ap.length?'ok':'err'}">${t}</div>`;
+      }catch(err){ $("#escMsg").innerHTML=`<div class="msg err">Erro ao ler o Excel: ${err.message}</div>`; }
+    }
+
+    function ultimaTerca(y,m,dnm){ for(let d=dnm; d>=1; d--){ if(new Date(y,m-1,d).getDay()===2) return d; } return null; }
+    function gerarAuto(y,m,dnm){
+      const role={};
+      st.colaboradores.forEach(c=>{ const n=c.nome.toLowerCase();
+        if(n.includes("vagner"))role.vagner=c; else if(n.includes("arthur"))role.arthur=c;
+        else if(n.includes("val"))role.valeria=c; else if(n.includes("emil"))role.emilly=c; });
+      const sundays=[]; for(let d=1; d<=dnm; d++) if(new Date(y,m-1,d).getDay()===0) sundays.push(d);
+      const grid={};
+      st.colaboradores.forEach(c=>{ const arr=[]; for(let d=1; d<=dnm; d++){ const wd=new Date(y,m-1,d).getDay();
+        arr[d]= wd===0?"FG": wd===6?"M":"D"; } grid[c.id]=arr; });
+      const trabDom=(c,dom)=>{ if(!c)return; grid[c.id][dom]="M"; const sat=dom-1;
+        if(sat>=1 && new Date(y,m-1,sat).getDay()===6) grid[c.id][sat]="FG"; };
+      const ate=(y<2026)||(y===2026&&m<=10);
+      if(role.vagner && ate) sundays.forEach(s=>trabDom(role.vagner,s));
+      let arthurDoms=[]; if(sundays.length>=3) arthurDoms=[sundays[0],sundays[2]]; else if(sundays.length) arthurDoms=[sundays[0]];
+      arthurDoms.forEach(s=>trabDom(role.arthur,s));
+      const off=sundays.filter(s=>!arthurDoms.includes(s)), par=(m%2===0);
+      const p1=par?role.valeria:role.emilly, p2=par?role.emilly:role.valeria;
+      if(off[0]) trabDom(p1, off[0]); if(off[1]) trabDom(p2, off[1]);
+      if(role.valeria){ const t=ultimaTerca(y,m,dnm); if(t) grid[role.valeria.id][t]="M"; }
+      // feriados: marca F para todos (nacionais + PE + Petrolina + móveis)
+      const fer=feriadosSet(y);
+      for(let d=1; d<=dnm; d++){ const key=`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+        if(fer.has(key)) st.colaboradores.forEach(c=>{ grid[c.id][d]="F"; }); }
+      st.colaboradores.forEach(c=>{ const inp=$("#esc_"+c.id); if(inp) inp.value=grid[c.id].slice(1).join(" "); });
+    }
+
+    function pascoa(y){ const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,
+      f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,
+      l=(32+2*e+2*i-h-k)%7,mo=Math.floor((a+11*h+22*l)/451),
+      month=Math.floor((h+l-7*mo+114)/31),day=((h+l-7*mo+114)%31)+1; return new Date(y,month-1,day); }
+    function feriadosSet(y){ const s=new Set();
+      const add=(mo,da)=>s.add(`${y}-${String(mo).padStart(2,"0")}-${String(da).padStart(2,"0")}`);
+      const addD=dt=>s.add(`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`);
+      // Nacionais fixos
+      add(1,1); add(4,21); add(5,1); add(9,7); add(10,12); add(11,2); add(11,15); add(11,20); add(12,25);
+      // Pernambuco
+      add(3,6);                       // Data Magna (Revolução Pernambucana)
+      // Petrolina
+      add(6,24); add(9,21);           // São João e Emancipação Política
+      // Móveis (a partir da Páscoa)
+      const p=pascoa(y), off=n=>{const d=new Date(p);d.setDate(d.getDate()+n);return d;};
+      addD(off(-48)); addD(off(-47)); // Carnaval (segunda e terça)
+      addD(off(-2));                  // Sexta-feira Santa
+      addD(off(60));                  // Corpus Christi
+      return s; }
+
+    async function salvarEscala(y,m,dnm){
+      const b=$("#escSalvar"), titulo=`Salvar escala de ${fmtMesAno(y,m)}`;
+      const linhas=[], erros=[];
+      for(const c of st.colaboradores){
+        const raw=($("#esc_"+c.id).value||"").trim(); if(!raw) continue;
+        const codes=raw.toUpperCase().split(/[\s,]+/).filter(Boolean);
+        codes.forEach((cod,i)=>{
+          if(i>=dnm) return;
+          const def=CODIGOS[cod];
+          if(!def){ erros.push(`${c.nome.split(" ")[0]} dia ${i+1}: "${cod}"`); return; }
+          linhas.push({colaborador_id:c.id, data:`${y}-${String(m).padStart(2,"0")}-${String(i+1).padStart(2,"0")}`,
+            codigo:cod, tipo:def.tipo, eh_folga:def.tipo==="folga",
+            entrada_prevista:def.ent||null, saida_prevista:def.sai||null, intervalo_min:def.interv??null});
+        });
+      }
+      if(erros.length){ $("#escMsg").innerHTML=`<div class="msg err">Códigos inválidos: ${erros.slice(0,6).join("; ")}. Use ${Object.keys(CODIGOS).join("/")}.</div>`; return; }
+      if(!linhas.length){ $("#escMsg").innerHTML=`<div class="msg err">Nada para salvar.</div>`; return; }
+      b.disabled=true; b.textContent="Salvando...";
+      const {error}=await sb.from("escalas").upsert(linhas,{onConflict:"colaborador_id,data"});
+      b.disabled=false; b.textContent=titulo;
+      if(error){ $("#escMsg").innerHTML=`<div class="msg err">Erro: ${error.message}</div>`; return; }
+      $("#escMsg").innerHTML=`<div class="msg ok">${linhas.length} dias salvos para ${fmtMesAno(y,m)}.</div>`;
+    }
+  </script>
+</body>
+</html>

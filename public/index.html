@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a1822" />
+  <title>Ponto iMarket</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='11' fill='%230a1822'/><path d='M12 7v5l3 2' stroke='%231c8fc9' stroke-width='2' fill='none' stroke-linecap='round'/></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      /* marca iMarket: preto, azul-petróleo, branco */
+      --brand:#1c7fb8; --brand-d:#155a82; --brand-ink:#0a1822;
+      --bg-1:#091621; --bg-2:#10334a;
+      --card:#ffffff; --ink:#0d2330; --muted:#5b7686; --line:#e4ebf0;
+      --field:#f5f8fa;
+      --ok:#15803d; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fdf2e3;
+      --err:#dc2626; --err-bg:#fdeaea; --info:#0e5a8a; --info-bg:#e6f2fb;
+      --r:18px; --r-sm:12px;
+      --shadow:0 14px 34px rgba(7,18,28,.18), 0 2px 6px rgba(7,18,28,.06);
+      --shadow-sm:0 4px 14px rgba(7,18,28,.08);
+      --t:180ms cubic-bezier(.4,0,.2,1);
+    }
+    *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body{margin:0;padding:0}
+    body{
+      font-family:"Open Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+      background:radial-gradient(120% 90% at 50% 0%, #14405c 0%, var(--bg-2) 38%, var(--bg-1) 100%);
+      color:var(--ink); min-height:100dvh; font-size:16px; line-height:1.5;
+    }
+    h1,h2,.brand-name{font-family:"Poppins",sans-serif;letter-spacing:-.01em}
+    .wrap{max-width:480px;margin:0 auto;min-height:100dvh;display:flex;flex-direction:column}
+    .topbar{display:flex;align-items:center;justify-content:space-between;
+      padding:18px 18px calc(10px + env(safe-area-inset-top))}
+    .brand{display:flex;align-items:center;gap:11px}
+    .brand .logo{width:40px;height:40px;border-radius:11px;object-fit:cover;
+      box-shadow:var(--shadow-sm);background:#000;display:block}
+    .brand .mark{width:40px;height:40px;border-radius:11px;background:#000;display:grid;
+      place-items:center;box-shadow:var(--shadow-sm)}
+    .brand-name{font-weight:700;font-size:17px;color:#eaf3f9;line-height:1}
+    .brand-name small{display:block;font-family:"Open Sans";font-weight:500;
+      font-size:11px;color:#8fb2c7;letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+    .who{font-size:13px;color:#9fbecf;text-align:right;line-height:1.25}
+    .who b{color:#eaf3f9;display:block;font-size:14px;font-family:"Poppins";font-weight:600}
+    .screen{flex:1;padding:6px 16px calc(26px + env(safe-area-inset-bottom))}
+    .card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);
+      padding:24px;margin-bottom:14px}
+    h1{font-size:22px;margin:0 0 6px;font-weight:700}
+    h2{font-size:16px;margin:0 0 14px;font-weight:600}
+    .sub{color:var(--muted);font-size:14.5px;margin:0 0 18px;line-height:1.5}
+    label{display:block;font-size:13px;font-weight:600;color:#33505f;margin:16px 0 7px}
+    input,select{width:100%;padding:14px;border:1.5px solid var(--line);border-radius:var(--r-sm);
+      font-size:16px;font-family:inherit;background:var(--field);color:var(--ink);
+      outline:none;transition:border var(--t),box-shadow var(--t)}
+    input::placeholder{color:#9bb0bd}
+    input:focus,select:focus{border-color:var(--brand);background:#fff;
+      box-shadow:0 0 0 4px rgba(28,127,184,.14)}
+    .btn{width:100%;min-height:50px;padding:14px;border:none;border-radius:var(--r-sm);
+      font-size:16px;font-weight:700;font-family:"Poppins";cursor:pointer;
+      background:var(--brand);color:#fff;transition:background var(--t),transform var(--t),box-shadow var(--t);
+      box-shadow:0 6px 16px rgba(28,127,184,.28);margin-top:10px}
+    .btn:hover{background:var(--brand-d)} .btn:active{transform:translateY(1px)}
+    .btn:disabled{opacity:.55;cursor:default;box-shadow:none}
+    .btn.ghost{background:var(--field);color:#33505f;box-shadow:none;border:1.5px solid var(--line)}
+    .btn.ghost:hover{background:#eef3f6}
+    :focus-visible{outline:3px solid rgba(28,127,184,.5);outline-offset:2px}
+    .clock{text-align:center;margin:4px 0 16px}
+    .clock .time{font-size:48px;font-weight:700;font-family:"Poppins";letter-spacing:1px;
+      font-variant-numeric:tabular-nums;color:var(--brand-ink)}
+    .clock .date{color:var(--muted);font-size:15px;text-transform:capitalize;margin-top:2px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:8px}
+    .punch{position:relative;padding:18px 12px;border-radius:var(--r);border:1.5px solid var(--line);
+      background:#fff;cursor:pointer;text-align:center;transition:transform var(--t),box-shadow var(--t),border-color var(--t);
+      display:flex;flex-direction:column;align-items:center;gap:10px;min-height:112px;justify-content:center;
+      box-shadow:var(--shadow-sm)}
+    .punch:hover{box-shadow:var(--shadow);border-color:#cfdde6}
+    .punch:active{transform:scale(.97)}
+    .punch .ic{width:46px;height:46px;border-radius:13px;display:grid;place-items:center}
+    .punch .ic svg{width:24px;height:24px;stroke-width:2}
+    .punch .lb{font-size:14px;font-weight:700;color:#33505f;line-height:1.25;font-family:"Poppins"}
+    .ic-green{background:var(--ok-bg);color:var(--ok)}
+    .ic-amber{background:var(--warn-bg);color:var(--warn)}
+    .ic-blue{background:var(--info-bg);color:var(--info)}
+    .ic-red{background:var(--err-bg);color:var(--err)}
+    .punch:disabled{opacity:.5;cursor:default}
+    .punch.done{border-color:var(--ok);background:#f4fbf6}
+    .punch .check{position:absolute;top:9px;right:9px;color:var(--ok);width:18px;height:18px}
+    .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;
+      font-size:12px;font-weight:700;font-family:"Poppins"}
+    .pill.ok{background:var(--ok-bg);color:var(--ok)}
+    .msg{padding:13px 15px;border-radius:var(--r-sm);font-size:14px;margin:12px 0;line-height:1.45;
+      display:flex;align-items:flex-start;gap:9px}
+    .msg svg{flex-shrink:0;width:18px;height:18px;margin-top:1px}
+    .msg.err{background:var(--err-bg);color:var(--err)}
+    .msg.ok{background:var(--ok-bg);color:var(--ok)}
+    .msg.info{background:var(--info-bg);color:var(--info)}
+    .tabs{display:flex;gap:6px;background:rgba(7,18,28,.45);backdrop-filter:blur(8px);
+      padding:6px;border-radius:15px;margin:0 16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .tabs::-webkit-scrollbar{display:none}
+    .tab{flex:1 0 auto;min-height:44px;padding:11px 12px;border:none;border-radius:11px;background:transparent;
+      color:#a9c6d7;font-weight:600;font-size:13px;font-family:"Poppins";cursor:pointer;white-space:nowrap;
+      transition:background var(--t),color var(--t)}
+    .tab.active{background:var(--card);color:var(--brand-ink);box-shadow:var(--shadow-sm)}
+    .row{display:flex;align-items:center;justify-content:space-between;padding:14px 4px;
+      border-bottom:1px solid var(--line)}
+    .row:last-child{border-bottom:none}
+    .row .t{font-weight:700;font-family:"Poppins";font-variant-numeric:tabular-nums}
+    .row .m{color:var(--muted);font-size:13px}
+    .tag{font-size:11px;font-weight:700;font-family:"Poppins";padding:4px 10px;border-radius:8px}
+    .tag.e{background:var(--ok-bg);color:var(--ok)}.tag.s{background:var(--err-bg);color:var(--err)}
+    .tag.i{background:var(--warn-bg);color:var(--warn)}.tag.r{background:var(--info-bg);color:var(--info)}
+    .daylabel{margin:16px 0 6px;font-weight:700;font-family:"Poppins";text-transform:capitalize;
+      display:flex;align-items:center;gap:8px;color:var(--brand-ink)}
+    .empty{text-align:center;color:var(--muted);padding:28px 10px;font-size:14px}
+    .qr{display:flex;justify-content:center;margin:16px 0 10px;background:#fff;padding:14px;
+      border-radius:var(--r-sm);border:1.5px solid var(--line)}
+    .qr svg,.qr img{width:188px;height:188px}
+    .secret{font-family:ui-monospace,monospace;background:var(--field);padding:11px;border-radius:10px;
+      text-align:center;letter-spacing:1px;font-size:14px;word-break:break-all;border:1px solid var(--line)}
+    .link{background:none;border:none;color:var(--brand);font-weight:600;font-size:14px;
+      font-family:"Open Sans";cursor:pointer;padding:10px;margin-top:6px;width:100%;min-height:44px;
+      border-radius:10px;transition:background var(--t)}
+    .link:hover{background:var(--field)}
+    .summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:4px}
+    .kpi{background:linear-gradient(160deg,#fff,#f4f9fc);border:1.5px solid var(--line);
+      border-radius:var(--r);padding:16px}
+    .kpi .v{font-size:26px;font-weight:700;font-family:"Poppins";color:var(--brand-ink);
+      font-variant-numeric:tabular-nums}
+    .kpi .l{font-size:12.5px;color:var(--muted);margin-top:2px}
+    .mesnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .mestitulo{font-family:"Poppins";font-weight:600;font-size:17px;text-transform:capitalize;color:var(--brand-ink)}
+    .navbtn{width:42px;height:42px;border-radius:12px;border:1.5px solid var(--line);background:#fff;
+      cursor:pointer;display:grid;place-items:center;color:var(--brand);transition:background var(--t)}
+    .navbtn:hover{background:var(--field)} .navbtn:disabled{opacity:.35;cursor:default}
+    .navbtn svg{width:20px;height:20px;stroke-width:2.5}
+    .foot{text-align:center;color:#6f93a8;font-size:12px;padding:12px}
+    .hidden{display:none!important}
+    .spin{width:18px;height:18px;border:2.5px solid #ffffff66;border-top-color:#fff;
+      border-radius:50%;animation:sp .7s linear infinite;display:inline-block;vertical-align:-3px}
+    @keyframes sp{to{transform:rotate(360deg)}}
+    .lgpd-box{max-height:230px;overflow:auto;background:var(--field);border:1.5px solid var(--line);
+      border-radius:var(--r-sm);padding:15px;font-size:13px;color:#4a6473;line-height:1.6}
+    .lgpd-box b{color:var(--brand-ink)}
+    .check-row{display:flex;gap:11px;align-items:flex-start;margin:16px 0;font-size:14px;color:#33505f}
+    .check-row input{width:auto;margin-top:2px;width:18px;height:18px;accent-color:var(--brand)}
+    .fade{animation:fade var(--t) ease-out}
+    @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+    @media (prefers-reduced-motion: reduce){
+      *{animation-duration:.001ms!important;transition-duration:.001ms!important}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">
+        <img class="logo" id="logoImg" src="logo.png" alt="iMarket"
+             onerror="this.style.display='none';document.getElementById('logoMark').style.display='grid'"/>
+        <span class="mark" id="logoMark" style="display:none" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1c8fc9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+        </span>
+        <span class="brand-name">Ponto<small>iMarket</small></span>
+      </div>
+      <div class="who" id="who"></div>
+    </div>
+
+    <div class="tabs hidden" id="tabs">
+      <button class="tab active" data-view="ponto">Ponto</button>
+      <button class="tab" data-view="horas">Horas</button>
+      <button class="tab" data-view="escala">Escala</button>
+      <button class="tab" data-view="trocas">Trocas</button>
+      <button class="tab" data-view="atestados">Atestados</button>
+    </div>
+
+    <div class="screen" id="screen"></div>
+    <div class="foot">
+      <div style="font-weight:600;color:#a9c6d7">O seu mercado aberto 24 horas por dia e 7 dias por semana dentro do seu condomínio</div>
+      <div style="margin-top:5px;opacity:.8">iMarket · uso interno · dados protegidos por LGPD</div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script type="module">
+    import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+    const CFG = window.PONTO_CONFIG;
+    const sb = createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY);
+    const $ = (s)=>document.querySelector(s);
+    const screen = $("#screen");
+
+    // ----------------------------------------------------------- ícones SVG
+    const S = (p)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+    const ICON = {
+      entrada: S('<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>'),
+      entrada_intervalo: S('<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>'),
+      retorno_intervalo: S('<polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>'),
+      saida: S('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>'),
+      check: S('<polyline points="20 6 9 17 4 12"/>'),
+      pin: S('<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0Z"/><circle cx="12" cy="10" r="3"/>'),
+      alert: S('<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>'),
+      ok: S('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'),
+      prev: S('<polyline points="15 18 9 12 15 6"/>'),
+      next: S('<polyline points="9 18 15 12 9 6"/>'),
+    };
+    const TIPOS = {
+      entrada:{lb:"Entrada",ic:"ic-green",tag:"e"},
+      entrada_intervalo:{lb:"Saída intervalo",ic:"ic-amber",tag:"i"},
+      retorno_intervalo:{lb:"Volta intervalo",ic:"ic-blue",tag:"r"},
+      saida:{lb:"Saída",ic:"ic-red",tag:"s"},
+    };
+    const state = { user:null, colaborador:null, unidades:[], view:"ponto", banco:null, bancoView:"total" };
+
+    const fmtTime = (d)=> new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:CFG.FUSO}).format(d);
+    const fmtTimeS= (d)=> new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:CFG.FUSO}).format(d);
+    const fmtDate = (d)=> new Intl.DateTimeFormat("pt-BR",{weekday:"long",day:"2-digit",month:"long",timeZone:CFG.FUSO}).format(d);
+    const fmtDayShort=(s)=>{const[y,m,dd]=s.split("-");return `${dd}/${m}`;};
+    const mesAtual=()=>{const f=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO,year:"numeric",month:"2-digit"}).format(new Date());const[y,m]=f.split("-").map(Number);return {y,m};};
+    const fmtMesAno=(y,m)=>new Intl.DateTimeFormat("pt-BR",{month:"long",year:"numeric"}).format(new Date(y,m-1,1));
+    const fmtH=min=>{min=Math.round(min);const s=min<0?"-":"";min=Math.abs(min);return `${s}${Math.floor(min/60)}h${String(min%60).padStart(2,"0")}`;};
+    const hhmmToMin=t=>t?(+(""+t).slice(0,2)*60 + +(""+t).slice(3,5)):0;
+
+    // prévia para o gestor: link de volta à gestão
+    if(new URLSearchParams(location.search).has("preview")){
+      const f=document.querySelector(".foot");
+      if(f) f.innerHTML='<a href="gestao.html" style="color:#9fbecf;font-weight:600;text-decoration:none">← Voltar à gestão</a> · prévia do app do colaborador';
+    }
+
+    // ---------------------------------------------------------------- BOOT
+    (async function boot(){
+      const { data:{ session } } = await sb.auth.getSession();
+      if(!session){ return renderLogin(); }
+      await afterLogin();
+    })();
+
+    // -------------------------------------------- LOGIN (e-mail + código)
+    function renderLogin(){
+      hideChrome();
+      screen.innerHTML = `
+        <div class="card fade">
+          <div style="text-align:center;margin-bottom:10px">
+            <img src="logo.png" alt="iMarket" style="width:88px;height:88px;border-radius:22px;object-fit:cover;box-shadow:var(--shadow-sm)" onerror="this.style.display='none';document.getElementById('loginLogoFb').style.display='inline-grid'">
+            <span id="loginLogoFb" style="display:none;width:88px;height:88px;border-radius:22px;background:#000;place-items:center;box-shadow:var(--shadow-sm)"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#1c8fc9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg></span>
+          </div>
+          <h1 style="text-align:center">Entrar</h1>
+          <p class="sub" style="text-align:center">Informe seu e-mail. Enviaremos um código de 6 dígitos para você acessar — sem senha e sem aplicativo.</p>
+          <div id="lmsg"></div>
+          <label for="email">E-mail</label>
+          <input id="email" type="email" autocomplete="email" inputmode="email" placeholder="voce@imarket.com" />
+          <button class="btn" id="sendBtn">Enviar código</button>
+        </div>`;
+      $("#sendBtn").onclick = sendCode;
+      $("#email").addEventListener("keydown",e=>{if(e.key==="Enter")sendCode();});
+    }
+    async function sendCode(){
+      const email=$("#email").value.trim().toLowerCase(); const b=$("#sendBtn");
+      if(!email) return msg("#lmsg","Digite seu e-mail.","err");
+      b.disabled=true; b.innerHTML='<span class="spin"></span> Enviando...';
+      const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:false }});
+      b.disabled=false; b.textContent="Enviar código";
+      if(error) return msg("#lmsg", traduz(error.message), "err");
+      renderCode(email);
+    }
+
+    function renderCode(email){
+      hideChrome();
+      screen.innerHTML = `
+        <div class="card fade">
+          <h1>Código de acesso</h1>
+          <p class="sub">Enviamos um código de 6 dígitos para <b>${email}</b>. Digite-o abaixo.</p>
+          <div id="cmsg"></div>
+          <label for="code">Código</label>
+          <input id="code" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code" autofocus />
+          <button class="btn" id="verBtn">Entrar</button>
+          <button class="link" id="resendL">Reenviar código</button>
+          <button class="link" id="backL">Usar outro e-mail</button>
+        </div>`;
+      $("#backL").onclick = renderLogin;
+      $("#resendL").onclick = async ()=>{
+        const { error } = await sb.auth.signInWithOtp({ email, options:{ shouldCreateUser:false }});
+        msg("#cmsg", error?traduz(error.message):"Código reenviado. Confira o e-mail.", error?"err":"ok");
+      };
+      const go=async()=>{
+        const code=$("#code").value.trim(); const b=$("#verBtn");
+        if(code.length<6) return msg("#cmsg","Digite os 6 dígitos.","err");
+        b.disabled=true; b.innerHTML='<span class="spin"></span> Entrando...';
+        const { error } = await sb.auth.verifyOtp({ email, token:code, type:"email" });
+        b.disabled=false; b.textContent="Entrar";
+        if(error) return msg("#cmsg", traduz(error.message), "err");
+        await afterLogin();
+      };
+      $("#verBtn").onclick=go;
+      $("#code").addEventListener("keydown",e=>{if(e.key==="Enter")go();});
+    }
+
+    // ---------------------------------------- depois do login: carrega tudo
+    async function afterLogin(){
+      const { data:{ user } } = await sb.auth.getUser();
+      state.user = user;
+      await afterMfaOk();
+    }
+
+    async function afterMfaOk(){
+      const { data:colab } = await sb.from("colaboradores").select("*").eq("id",state.user.id).maybeSingle();
+      if(!colab){
+        hideChrome();
+        screen.innerHTML=`<div class="card fade"><h1>Cadastro pendente</h1>
+          <p class="sub">Seu usuário ainda não está vinculado a um colaborador. Avise a gestão.</p>
+          <button class="btn ghost" id="logoutL">Sair</button></div>`;
+        $("#logoutL").onclick=logout; return;
+      }
+      state.colaborador = colab;
+      if(colab.papel==="gestor" && !new URLSearchParams(location.search).has("preview")){ location.href="gestao.html"; return; }
+      $("#who").innerHTML = `<b>${colab.nome.split(" ")[0]}</b>${colab.cargo||"Colaborador"}`;
+
+      const { data:cons } = await sb.from("consentimentos_lgpd").select("id")
+        .eq("colaborador_id",state.user.id).eq("versao_texto",CFG.LGPD_VERSAO).limit(1);
+      if(!cons || cons.length===0){ return renderLGPD(); }
+
+      const { data:un } = await sb.from("unidades").select("*").eq("ativo",true).order("nome");
+      state.unidades = un||[];
+      showChrome();
+      renderView();
+    }
+
+    // --------------------------------------------------------------- LGPD
+    function renderLGPD(){
+      hideChrome();
+      screen.innerHTML = `<div class="card fade">
+        <h1>Consentimento (LGPD)</h1>
+        <p class="sub">Para registrar seu ponto precisamos do seu aceite sobre o tratamento dos dados.</p>
+        <div class="lgpd-box">
+          <b>Tratamento de dados — Ponto Eletrônico iMarket</b><br/><br/>
+          Ao registrar seu ponto, o iMarket coletará e tratará: identificação do
+          colaborador, data e <b>horário</b> de cada batida (carimbados pelo servidor),
+          a <b>unidade</b> selecionada e a <b>localização (GPS)</b> do dispositivo no momento
+          do registro.<br/><br/>
+          <b>Finalidade:</b> cumprimento de obrigações trabalhistas (controle de jornada,
+          art. 74 da CLT), gestão de escala e banco de horas, e prevenção de fraude no
+          registro de ponto.<br/><br/>
+          <b>Base legal:</b> cumprimento de obrigação legal/regulatória e execução do
+          contrato de trabalho (LGPD, Lei 13.709/2018, art. 7º).<br/><br/>
+          <b>Seus direitos:</b> acessar, corrigir e solicitar informações sobre seus dados
+          junto à gestão de RH. A geolocalização é usada exclusivamente para confirmar o
+          local da batida, não para rastreamento contínuo.<br/><br/>
+          <b>Banco de horas e compensação:</b> declaro estar ciente e de acordo com o regime
+          de <b>banco de horas</b>, em que horas devidas podem ser <b>compensadas</b> (pagas)
+          em outro dia e horas excedentes (crédito) podem ser usufruídas como <b>folga</b>,
+          mediante acordo entre empregado e empregador e registro pela gestão.<br/><br/>
+          Versão do termo: ${CFG.LGPD_VERSAO}.
+        </div>
+        <label class="check-row"><input type="checkbox" id="agree" />
+          <span>Li e <b>concordo</b> com o tratamento dos meus dados, incluindo a captura de geolocalização no momento de cada batida.</span></label>
+        <div id="gmsg"></div>
+        <button class="btn" id="okLgpd" disabled>Aceitar e continuar</button>
+        <button class="link" id="logoutL">Sair</button>
+      </div>`;
+      $("#logoutL").onclick=logout;
+      $("#agree").onchange=e=>$("#okLgpd").disabled=!e.target.checked;
+      $("#okLgpd").onclick=async()=>{
+        const b=$("#okLgpd"); b.disabled=true; b.innerHTML='<span class="spin"></span> Registrando...';
+        const { error } = await sb.from("consentimentos_lgpd").insert({
+          colaborador_id: state.user.id, versao_texto: CFG.LGPD_VERSAO,
+          dispositivo: navigator.userAgent.slice(0,250)
+        });
+        if(error){ b.disabled=false; b.textContent="Aceitar e continuar"; return msg("#gmsg",traduz(error.message),"err"); }
+        await afterMfaOk();
+      };
+    }
+
+    // ------------------------------------------------------- VIEWS (chrome)
+    function showChrome(){ $("#tabs").classList.remove("hidden"); }
+    function hideChrome(){ $("#tabs").classList.add("hidden"); $("#who").innerHTML=""; }
+    document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+      document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+      t.classList.add("active"); state.view=t.dataset.view; renderView();
+    });
+    function renderView(){
+      if(state.view==="horas") return renderHoras();
+      if(state.view==="escala") return renderMinhaEscala();
+      if(state.view==="trocas") return renderTrocas();
+      if(state.view==="atestados") return renderAtestados();
+      return renderPonto();
+    }
+
+    // --------------------------------------------------------- MINHA ESCALA
+    async function renderMinhaEscala(){
+      if(clockTimer) clearInterval(clockTimer);
+      if(horasChart){ horasChart.destroy(); horasChart=null; }
+      if(!state.mesRef) state.mesRef = mesAtual();
+      const { y, m } = state.mesRef, mm=String(m).padStart(2,"0");
+      const ini=`${y}-${mm}-01`, fim=`${y}-${mm}-${String(new Date(y,m,0).getDate()).padStart(2,"0")}`;
+      screen.innerHTML = `
+        <div class="card fade">
+          <div class="mesnav">
+            <button class="navbtn" id="prevM" aria-label="Mês anterior">${ICON.prev}</button>
+            <div class="mestitulo">${fmtMesAno(y,m)}</div>
+            <button class="navbtn" id="nextM" aria-label="Próximo mês">${ICON.next}</button>
+          </div>
+          <div id="escResumo" class="empty">Carregando...</div>
+        </div>
+        <div class="card fade"><h2>Dias do mês</h2><div id="escDias" class="empty">Carregando...</div></div>`;
+      $("#prevM").onclick=()=>{ let ny=y,nm=m-1; if(nm<1){nm=12;ny--;} state.mesRef={y:ny,m:nm}; renderMinhaEscala(); };
+      $("#nextM").onclick=()=>{ let ny=y,nm=m+1; if(nm>12){nm=1;ny++;} state.mesRef={y:ny,m:nm}; renderMinhaEscala(); };
+      const { data, error } = await sb.from("escalas").select("*").gte("data",ini).lte("data",fim).order("data");
+      if(error){ $("#escDias").innerHTML=`<div class="msg err">${traduz(error.message)}</div>`; return; }
+      const esc=data||[];
+      if(!esc.length){ $("#escResumo").outerHTML=`<div class="empty">Escala ainda não publicada para ${fmtMesAno(y,m)}.</div>`; $("#escDias").innerHTML=""; return; }
+      const dows=["dom","seg","ter","qua","qui","sex","sáb"];
+      let trabDias=0, folgas=0, prevMin=0;
+      const lab=e=>{ if(e.tipo==="feriado")return["Feriado","i"]; if(e.eh_folga)return["Folga","r"];
+        const en=(e.entrada_prevista||"").slice(0,5), sa=(e.saida_prevista||"").slice(0,5);
+        if(!en)return["—","r"]; return [`${en}–${sa}`,"e"]; };
+      const linhas=esc.map(e=>{ const dow=dows[new Date(e.data+"T12:00:00").getDay()]; const [txt,cls]=lab(e);
+        if(!e.eh_folga&&e.tipo!=="feriado"&&e.entrada_prevista){ trabDias++; prevMin+=hhmmToMin(e.saida_prevista)-hhmmToMin(e.entrada_prevista)-(e.intervalo_min||0); }
+        if(e.eh_folga) folgas++;
+        return `<div class="row"><div><b>${e.data.slice(8)}/${mm}</b> <span class="m">${dow}</span></div><span class="tag ${cls}">${txt}</span></div>`; }).join("");
+      $("#escResumo").outerHTML=`<div class="summary">
+        <div class="kpi"><div class="v">${trabDias}</div><div class="l">dias de trabalho</div></div>
+        <div class="kpi"><div class="v">${folgas}</div><div class="l">folgas</div></div>
+        <div class="kpi"><div class="v">${Math.round(prevMin/60)}h</div><div class="l">horas previstas</div></div>
+      </div>`;
+      $("#escDias").innerHTML=linhas;
+    }
+
+    // ----------------------------------------------------------- BATER PONTO
+    let clockTimer=null, horasChart=null;
+    async function renderPonto(){
+      if(clockTimer) clearInterval(clockTimer);
+      screen.innerHTML = `
+        <div class="card fade">
+          <div class="clock"><div class="time" id="clk"></div><div class="date" id="dt"></div></div>
+          <div id="pmsg"></div>
+          <div class="grid" id="grid">
+            ${Object.entries(TIPOS).map(([k,v])=>`
+              <button class="punch" data-tipo="${k}">
+                <span class="check">${ICON.check}</span>
+                <span class="ic ${v.ic}">${ICON[k]}</span>
+                <span class="lb">${v.lb}</span></button>`).join("")}
+          </div>
+          <button class="link" id="logoutL">Sair da conta</button>
+        </div>`;
+      $("#logoutL").onclick=logout;
+      const tick=()=>{const n=new Date();$("#clk").textContent=fmtTimeS(n);$("#dt").textContent=fmtDate(n);};
+      tick(); clockTimer=setInterval(tick,1000);
+      document.querySelectorAll(".punch").forEach(b=>b.onclick=()=>baterPonto(b.dataset.tipo));
+      await marcarJaBatidos();
+    }
+
+    async function marcarJaBatidos(){
+      const hoje = new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date());
+      const { data } = await sb.from("registros_ponto").select("tipo")
+        .eq("colaborador_id",state.user.id).eq("data_ref",hoje);
+      const feitos = new Set((data||[]).map(r=>r.tipo));
+      document.querySelectorAll(".punch").forEach(b=>{
+        const done = feitos.has(b.dataset.tipo);
+        b.disabled = done; b.classList.toggle("done", done);
+        b.querySelector(".check").style.display = done ? "block" : "none";
+      });
+    }
+
+    async function baterPonto(tipo){
+      const btns=document.querySelectorAll(".punch"); btns.forEach(b=>b.disabled=true);
+      const liberar=()=>marcarJaBatidos();
+      msg("#pmsg",'<span class="spin" style="border-color:#0e5a8a44;border-top-color:#0e5a8a"></span> Capturando localização...',"info");
+      let coords=null;
+      try{ coords = await getGPS(); }catch(e){}
+      if(!coords){ await liberar(); return msg("#pmsg","Ative a localização do celular para bater o ponto.","err"); }
+      const { data, error } = await sb.functions.invoke("bater-ponto", { body:{
+        tipo, lat:coords.latitude, lng:coords.longitude,
+        precisao_m:coords.accuracy, dispositivo:navigator.userAgent.slice(0,250)
+      }});
+      if(error){ await liberar(); return msg("#pmsg","Não foi possível registrar agora. Tente de novo.","err"); }
+      if(!data || data.ok!==true){
+        await liberar();
+        if(data?.motivo==="fora_de_alcance")
+          return msg("#pmsg",`Você precisa estar em uma loja para bater o ponto.${data.loja?` Mais próxima: ${data.loja}`:""} (${data.distancia_m} m).`,"err");
+        if(data?.motivo==="sem_gps")
+          return msg("#pmsg","Não consegui sua localização. Ative o GPS e tente de novo.","err");
+        return msg("#pmsg","Não foi possível registrar a batida.","err");
+      }
+      const agora = fmtTime(new Date());
+      msg("#pmsg", `<b>${TIPOS[tipo].lb}</b> registrada às ${agora}${data.unidade?` — ${data.unidade}`:""}.`, "ok");
+      state.banco=null; // recalcula o banco na próxima visita a "Minhas horas"
+      await marcarJaBatidos();
+    }
+
+    function getGPS(){
+      return new Promise((res,rej)=>{
+        if(!navigator.geolocation) return rej("sem geo");
+        navigator.geolocation.getCurrentPosition(p=>res(p.coords),rej,
+          {enableHighAccuracy:true,timeout:8000,maximumAge:0});
+      });
+    }
+
+    // ----------------------------------------------------------- MINHAS HORAS
+    async function renderHoras(){
+      if(clockTimer) clearInterval(clockTimer);
+      if(horasChart){ horasChart.destroy(); horasChart=null; }
+      if(!state.mesRef) state.mesRef = mesAtual();
+      if(!state.banco) await carregarBanco();
+      const { y, m } = state.mesRef;
+      const mm = String(m).padStart(2,"0");
+      const ini = `${y}-${mm}-01`;
+      const fim = `${y}-${mm}-${String(new Date(y,m,0).getDate()).padStart(2,"0")}`;
+      const at = mesAtual();
+      const noLimite = (y>at.y) || (y===at.y && m>=at.m);
+      screen.innerHTML = `
+        <div class="card fade" id="bancoCard">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h2 style="margin:0">Banco de horas</h2>
+            <button class="link" id="bancoToggle" style="width:auto;padding:6px 12px">${state.bancoView==="mes"?"Ver acumulado":"Ver mês"}</button>
+          </div>
+          <div id="bancoContent"></div>
+        </div>
+        <div class="card fade">
+          <div class="mesnav">
+            <button class="navbtn" id="prevM" aria-label="Mês anterior">${ICON.prev}</button>
+            <div class="mestitulo">${fmtMesAno(y,m)}</div>
+            <button class="navbtn" id="nextM" aria-label="Próximo mês" ${noLimite?"disabled":""}>${ICON.next}</button>
+          </div>
+          <div id="kpis" class="empty">Carregando...</div>
+        </div>
+        <div class="card fade" id="chartCard" style="display:none"><h2>Horas por dia</h2>
+          <div style="position:relative;height:220px"><canvas id="chHoras"></canvas></div></div>
+        <div class="card fade"><h2>Batidas do mês</h2><div id="lista" class="empty">Carregando...</div></div>`;
+      $("#prevM").onclick=()=>{ let ny=y,nm=m-1; if(nm<1){nm=12;ny--;} state.mesRef={y:ny,m:nm}; renderHoras(); };
+      $("#nextM").onclick=()=>{ if(noLimite)return; let ny=y,nm=m+1; if(nm>12){nm=1;ny++;} state.mesRef={y:ny,m:nm}; renderHoras(); };
+      renderBancoCard();
+      $("#bancoToggle").onclick=()=>{ state.bancoView=state.bancoView==="mes"?"total":"mes";
+        $("#bancoToggle").textContent=state.bancoView==="mes"?"Ver acumulado":"Ver mês"; renderBancoCard(); };
+
+      const { data, error } = await sb.from("vw_minhas_batidas").select("*")
+        .gte("data_ref",ini).lte("data_ref",fim).order("registrado_em",{ascending:false});
+      if(error){ $("#kpis").innerHTML=""; $("#lista").innerHTML=`<div class="msg err">${traduz(error.message)}</div>`; return; }
+      const regs = data||[];
+      const porDia={};
+      regs.forEach(r=>{(porDia[r.data_ref]=porDia[r.data_ref]||[]).push(r);});
+      let totalMin=0, diasTrab=0;
+      Object.values(porDia).forEach(arr=>{ const mn=minutosTrabalhados(arr); if(mn>0){totalMin+=mn;diasTrab++;} });
+      const hh=Math.floor(totalMin/60), rm=totalMin%60;
+      $("#kpis").outerHTML = `<div class="summary">
+        <div class="kpi"><div class="v">${diasTrab}</div><div class="l">dias trabalhados</div></div>
+        <div class="kpi"><div class="v">${hh}h${rm?` ${rm}m`:""}</div><div class="l">horas no mês</div></div>
+      </div>`;
+      if(regs.length===0){ $("#lista").innerHTML=`<div class="empty">Nenhuma batida neste mês.</div>`; return; }
+      // gráfico de horas por dia (ascendente)
+      const diasAsc = Object.keys(porDia).sort();
+      if(typeof Chart!=="undefined" && diasAsc.length){
+        $("#chartCard").style.display="block";
+        horasChart = new Chart($("#chHoras"),{type:"bar",
+          data:{labels:diasAsc.map(fmtDayShort),
+            datasets:[{label:"Horas",data:diasAsc.map(d=>+(minutosTrabalhados(porDia[d])/60).toFixed(1)),
+              backgroundColor:"#1c7fb8",borderRadius:6,maxBarThickness:34}]},
+          options:{responsive:true,maintainAspectRatio:false,
+            plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y}h`}}},
+            scales:{y:{beginAtZero:true,ticks:{font:{family:"Open Sans"}}},x:{ticks:{font:{family:"Open Sans"},autoSkip:true,maxRotation:0}}}}});
+      }
+      const dias = Object.keys(porDia).sort().reverse();
+      $("#lista").innerHTML = dias.map(d=>{
+        const arr=porDia[d].sort((a,b)=>new Date(a.registrado_em)-new Date(b.registrado_em));
+        const mn=minutosTrabalhados(arr);
+        const linhas=arr.map(r=>{
+          const t=TIPOS[r.tipo]||{lb:r.tipo,tag:"i"};
+          return `<div class="row"><div><span class="tag ${t.tag}">${t.lb}</span>
+            ${r.unidade?`<span class="m"> · ${r.unidade}</span>`:""}</div>
+            <div class="t">${fmtTime(new Date(r.registrado_em))}</div></div>`;
+        }).join("");
+        return `<div class="daylabel">${fmtDayShort(d)} ${mn>0?`<span class="pill ok">${(mn/60).toFixed(1)}h</span>`:""}</div>${linhas}`;
+      }).join("");
+    }
+
+    function minutosTrabalhados(arr){
+      const get=t=>arr.find(r=>r.tipo===t);
+      const ent=get("entrada"), sai=get("saida");
+      if(!ent||!sai) return 0;
+      let min=(new Date(sai.registrado_em)-new Date(ent.registrado_em))/60000;
+      const si=get("entrada_intervalo"), vi=get("retorno_intervalo");
+      if(si&&vi) min-=(new Date(vi.registrado_em)-new Date(si.registrado_em))/60000;
+      return Math.max(0,Math.round(min));
+    }
+
+    // ------------------------------------------------------ BANCO DE HORAS
+    async function carregarBanco(){
+      const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date());
+      const [esc,reg,aus,aj,at]=await Promise.all([
+        sb.from("escalas").select("data,eh_folga,tipo,entrada_prevista,saida_prevista,intervalo_min"),
+        sb.from("registros_ponto").select("tipo,registrado_em,data_ref"),
+        sb.from("ausencias").select("data"),
+        sb.from("banco_ajustes").select("data,tipo,minutos"),
+        sb.from("atestados").select("data_inicio,data_fim").eq("status","aprovado"),
+      ]);
+      const escMap={}; (esc.data||[]).forEach(e=>escMap[e.data]=e);
+      const regMap={}; (reg.data||[]).forEach(r=>{(regMap[r.data_ref]=regMap[r.data_ref]||[]).push(r);});
+      const abono=new Set((aus.data||[]).map(a=>a.data));
+      (at.data||[]).forEach(t=>{for(let x=Date.parse(t.data_inicio),f=Date.parse(t.data_fim);x<=f;x+=864e5)abono.add(new Date(x).toISOString().slice(0,10));});
+      let total=0; const porMes={};
+      const add=(d,min)=>{ total+=min; const ym=d.slice(0,7); porMes[ym]=(porMes[ym]||0)+min; };
+      new Set([...Object.keys(escMap),...Object.keys(regMap)]).forEach(d=>{
+        if(d>hoje) return;
+        const e=escMap[d], regs=regMap[d]||[];
+        const compareceu=regs.some(r=>r.tipo==="entrada");
+        const trab=minutosTrabalhados(regs);
+        const previstoDia=e&&!e.eh_folga&&e.tipo!=="feriado"&&e.entrada_prevista;
+        const jornadaPrev=(e&&e.entrada_prevista&&e.saida_prevista)?(hhmmToMin(e.saida_prevista)-hhmmToMin(e.entrada_prevista)-(e.intervalo_min||0)):0;
+        let dia=0;
+        if(compareceu) dia+=trab;
+        if(previstoDia && !abono.has(d)) dia-=jornadaPrev;
+        if(dia) add(d,dia);
+      });
+      (aj.data||[]).forEach(a=>{ if(a.data>hoje) return; add(a.data, a.tipo==="pagamento"?a.minutos:-a.minutos); });
+      state.banco={total,porMes};
+    }
+
+    function renderBancoCard(){
+      const el=$("#bancoContent"); if(!el||!state.banco) return;
+      const {y,m}=state.mesRef, ym=`${y}-${String(m).padStart(2,"0")}`;
+      const total=state.banco.total, mes=state.banco.porMes[ym]||0, isMes=state.bancoView==="mes";
+      const val=isMes?mes:total, outro=isMes?total:mes;
+      const cor=val>5?"var(--ok)":val<-5?"var(--err)":"var(--muted)";
+      const rotulo=val>5?"Você tem":val<-5?"Você deve":"";
+      el.innerHTML=`<div style="text-align:center;padding:8px 0 4px">
+        <div style="font-size:13px;color:var(--muted);text-transform:capitalize">${isMes?fmtMesAno(y,m):"Saldo acumulado"}</div>
+        <div style="font-size:42px;font-weight:800;font-family:Poppins;color:${cor};line-height:1.1">${Math.abs(val)<6?"Em dia":fmtH(Math.abs(val))}</div>
+        ${rotulo?`<div style="font-size:14px;color:${cor};font-weight:600">${rotulo} essas horas</div>`:""}
+        <div style="font-size:13px;color:var(--muted);margin-top:10px">${isMes?"Acumulado total":("Em "+fmtMesAno(y,m))}: <b>${fmtH(outro)}</b></div>
+      </div>`;
+    }
+
+    // --------------------------------------------------------- ATESTADOS
+    async function renderAtestados(){
+      if(clockTimer) clearInterval(clockTimer);
+      if(horasChart){ horasChart.destroy(); horasChart=null; }
+      const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date());
+      screen.innerHTML=`
+        <div class="card fade">
+          <h1>Enviar atestado</h1>
+          <p class="sub">Anexe o atestado e informe o período. A gestão analisa e, se aprovado, abona as horas.</p>
+          <div id="atMsg"></div>
+          <label for="atIni">Início</label><input type="date" id="atIni" value="${hoje}" max="${hoje}">
+          <label for="atFim">Fim</label><input type="date" id="atFim" value="${hoje}" max="${hoje}">
+          <label for="atFile">Arquivo (foto ou PDF)</label><input type="file" id="atFile" accept="image/*,application/pdf">
+          <label for="atObs">Observação (opcional)</label><input id="atObs" placeholder="Ex.: consulta médica">
+          <button class="btn" id="atEnviar">Enviar atestado</button>
+        </div>
+        <div class="card fade"><h2>Meus atestados</h2><div id="atLista" class="empty">Carregando...</div></div>`;
+      $("#atEnviar").onclick=enviarAtestado;
+      await listarAtestados();
+    }
+    async function listarAtestados(){
+      const el=$("#atLista"); if(!el) return;
+      const {data,error}=await sb.from("atestados").select("*").order("enviado_em",{ascending:false});
+      if(error){ el.innerHTML=`<div class="msg err">${traduz(error.message)}</div>`; return; }
+      if(!data||!data.length){ el.innerHTML=`<div class="empty">Nenhum atestado enviado ainda.</div>`; return; }
+      const br=d=>d.split("-").reverse().join("/");
+      const badge={pendente:["i","Em análise"],aprovado:["e","Aprovado"],rejeitado:["s","Rejeitado"]};
+      el.innerHTML=data.map(a=>{const[bc,bt]=badge[a.status]||["i",a.status];
+        return `<div class="row"><div><b>${br(a.data_inicio)}${a.data_fim!==a.data_inicio?` a ${br(a.data_fim)}`:""}</b>
+          ${a.observacao?`<div class="m">${a.observacao}</div>`:""}
+          ${a.status==="rejeitado"&&a.motivo_rejeicao?`<div class="m" style="color:var(--err)">Motivo: ${a.motivo_rejeicao}</div>`:""}</div>
+          <span class="tag ${bc}">${bt}</span></div>`;}).join("");
+    }
+    async function enviarAtestado(){
+      const ini=$("#atIni").value, fim=$("#atFim").value, file=$("#atFile").files[0], obs=$("#atObs").value.trim(), b=$("#atEnviar");
+      if(!ini||!fim) return msg("#atMsg","Informe o período.","err");
+      if(fim<ini) return msg("#atMsg","A data fim não pode ser antes do início.","err");
+      if(!file) return msg("#atMsg","Anexe o arquivo do atestado.","err");
+      if(file.size>10*1024*1024) return msg("#atMsg","Arquivo muito grande (máx. 10 MB).","err");
+      b.disabled=true; b.innerHTML='<span class="spin"></span> Enviando...';
+      const ext=(file.name.split(".").pop()||"dat").toLowerCase();
+      const path=`${state.user.id}/${crypto.randomUUID()}.${ext}`;
+      const up=await sb.storage.from("atestados").upload(path,file,{contentType:file.type||"application/octet-stream"});
+      if(up.error){ b.disabled=false; b.textContent="Enviar atestado"; return msg("#atMsg","Erro ao enviar arquivo: "+up.error.message,"err"); }
+      const { error } = await sb.from("atestados").insert({colaborador_id:state.user.id,data_inicio:ini,data_fim:fim,arquivo_path:path,observacao:obs||null});
+      b.disabled=false; b.textContent="Enviar atestado";
+      if(error) return msg("#atMsg",traduz(error.message),"err");
+      msg("#atMsg","Atestado enviado! A gestão vai analisar.","ok");
+      $("#atFile").value=""; $("#atObs").value="";
+      await listarAtestados();
+    }
+
+    // ------------------------------------------------------------- TROCAS
+    async function renderTrocas(){
+      if(clockTimer) clearInterval(clockTimer);
+      if(horasChart){ horasChart.destroy(); horasChart=null; }
+      const hoje=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date());
+      screen.innerHTML=`
+        <div class="card fade">
+          <h1>Solicitar troca</h1>
+          <p class="sub">Escolha um dia seu para trocar com um colega. Ele recebe um aviso e, se aceitar, a gestão aprova.</p>
+          <div id="trMsg"></div>
+          <label for="trDiaA">Dia que vou largar (meu)</label>
+          <select id="trDiaA"><option value="">Carregando...</option></select>
+          <label for="trColega">Colega</label>
+          <select id="trColega"><option value="">Carregando...</option></select>
+          <label for="trDiaB">Dia que quero pegar</label>
+          <input type="date" id="trDiaB" min="${hoje}">
+          <button class="btn" id="trEnviar">Enviar solicitação</button>
+        </div>
+        <div class="card fade"><h2>Minhas trocas</h2><div id="trLista" class="empty">Carregando...</div></div>`;
+      const [esc, colegas] = await Promise.all([
+        sb.from("escalas").select("data,eh_folga,tipo,entrada_prevista").gte("data",hoje).order("data"),
+        sb.rpc("listar_colegas"),
+      ]);
+      const dows=["dom","seg","ter","qua","qui","sex","sáb"];
+      const meusDias=(esc.data||[]).filter(e=>!e.eh_folga && e.tipo!=="feriado" && e.entrada_prevista);
+      $("#trDiaA").innerHTML=`<option value="">Selecione...</option>`+meusDias.map(e=>{
+        const dow=dows[new Date(e.data+"T12:00:00").getDay()];
+        return `<option value="${e.data}">${e.data.split("-").reverse().join("/")} (${dow})</option>`;}).join("");
+      $("#trColega").innerHTML=`<option value="">Selecione...</option>`+((colegas.data||[]).map(c=>`<option value="${c.id}">${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join(""));
+      $("#trEnviar").onclick=solicitarTroca;
+      await listarTrocas();
+    }
+    async function listarTrocas(){
+      const el=$("#trLista"); if(!el) return;
+      const { data, error } = await sb.from("trocas").select("*").order("criado_em",{ascending:false});
+      if(error){ el.innerHTML=`<div class="msg err">${traduz(error.message)}</div>`; return; }
+      if(!data||!data.length){ el.innerHTML=`<div class="empty">Nenhuma troca ainda.</div>`; return; }
+      const br=d=>d.split("-").reverse().join("/");
+      const stl={aguardando_colega:["i","Aguardando colega"],aguardando_gestor:["i","Aguardando gestão"],aprovada:["e","Aprovada"],recusada:["s","Recusada"],rejeitada:["s","Não aprovada"],cancelada:["r","Cancelada"]};
+      el.innerHTML=data.map(t=>{ const [bc,bt]=stl[t.status]||["i",t.status];
+        const souColega=t.colega_id===state.user.id, souSolic=t.solicitante_id===state.user.id;
+        const acoes = (souColega && t.status==="aguardando_colega")
+          ? `<div style="display:flex;gap:6px;margin-top:8px"><button class="btn" data-aceitar="${t.id}" style="min-height:40px">Aceitar</button><button class="btn ghost" data-recusar="${t.id}" style="min-height:40px">Recusar</button></div>`
+          : (souSolic && ["aguardando_colega","aguardando_gestor"].includes(t.status))
+            ? `<button class="link" data-cancelar="${t.id}" style="text-align:left">Cancelar solicitação</button>` : "";
+        const desc = souColega ? `Você assumiria <b>${br(t.data_a)}</b> e ficaria livre em <b>${br(t.data_b)}</b>`
+                               : `Você larga <b>${br(t.data_a)}</b> e pega <b>${br(t.data_b)}</b>`;
+        return `<div style="padding:12px 2px;border-bottom:1px solid var(--line)">
+          <div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>${br(t.data_a)} ↔ ${br(t.data_b)}</b><span class="tag ${bc}">${bt}</span></div>
+          <div class="m" style="margin-top:3px">${desc}</div>${acoes}</div>`; }).join("");
+      el.querySelectorAll("[data-aceitar]").forEach(b=>b.onclick=()=>acaoTroca("aceitar",b.dataset.aceitar));
+      el.querySelectorAll("[data-recusar]").forEach(b=>b.onclick=()=>acaoTroca("recusar",b.dataset.recusar));
+      el.querySelectorAll("[data-cancelar]").forEach(b=>b.onclick=()=>acaoTroca("cancelar",b.dataset.cancelar));
+    }
+    async function solicitarTroca(){
+      const data_a=$("#trDiaA").value, colega_id=$("#trColega").value, data_b=$("#trDiaB").value, b=$("#trEnviar");
+      if(!data_a||!colega_id||!data_b) return msg("#trMsg","Preencha o seu dia, o colega e o dia que quer pegar.","err");
+      if(data_a===data_b) return msg("#trMsg","Os dias devem ser diferentes.","err");
+      b.disabled=true; b.innerHTML='<span class="spin"></span> Enviando...';
+      const { data, error } = await sb.functions.invoke("trocas",{ body:{ action:"solicitar", colega_id, data_a, data_b }});
+      b.disabled=false; b.textContent="Enviar solicitação";
+      if(error||!data?.ok) return msg("#trMsg","Não foi possível enviar a troca."+(data?.motivo?` (${data.motivo})`:""),"err");
+      msg("#trMsg","Solicitação enviada! O colega foi avisado.","ok");
+      $("#trDiaB").value="";
+      await listarTrocas();
+    }
+    async function acaoTroca(action,troca_id){
+      const { data, error } = await sb.functions.invoke("trocas",{ body:{ action, troca_id }});
+      if(error||!data?.ok){ msg("#trMsg","Não foi possível concluir."+(data?.motivo?` (${data.motivo})`:""),"err"); return; }
+      state.banco=null;
+      await renderTrocas();
+    }
+
+    // ------------------------------------------------------------- helpers
+    function msg(sel,html,kind){
+      const ico = kind==="err"?ICON.alert : kind==="ok"?ICON.ok : ICON.pin;
+      $(sel).innerHTML=`<div class="msg ${kind}">${ico}<span>${html}</span></div>`;
+    }
+    async function logout(){ if(clockTimer)clearInterval(clockTimer); await sb.auth.signOut(); location.reload(); }
+    function traduz(m){
+      m=(m||"").toLowerCase();
+      if(m.includes("expired")||m.includes("invalid")&&m.includes("token")||m.includes("otp_expired"))
+        return "Código inválido ou expirado. Toque em \"Reenviar código\".";
+      if(m.includes("signups not allowed")||m.includes("otp_disabled")||m.includes("not found"))
+        return "E-mail não cadastrado no sistema. Avise a gestão.";
+      if(m.includes("email not confirmed")) return "E-mail ainda não confirmado. Avise a gestão.";
+      if(m.includes("rate limit")||m.includes("too many")) return "Muitas tentativas. Aguarde um instante.";
+      return "Erro: "+m;
+    }
+  </script>
+</body>
+</html>
