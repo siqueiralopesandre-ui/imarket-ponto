@@ -171,7 +171,7 @@
 
     async function carregar(){
       const {y,m}=st.mes, ini=primeiro(y,m), fim=ultimo(y,m);
-      const [c,e,r,a,bj,atOk,atPend,trcP,corrP,cfg,fer,emp]=await Promise.all([
+      const [c,e,r,a,bj,atOk,atPend,trcP,corrP,cfg,fer,emp,susp,dispPend]=await Promise.all([
         sb.from("colaboradores").select("*").eq("papel","colaborador").eq("ativo",true).order("nome"),
         sb.from("escalas").select("*").gte("data",ini).lte("data",fim),
         sb.from("registros_ponto").select("colaborador_id,tipo,registrado_em,data_ref").gte("data_ref",ini).lte("data_ref",fim),
@@ -184,7 +184,10 @@
         sb.from("config").select("chave,valor"),
         sb.from("feriados").select("data,nome").gte("data",ini).lte("data",fim),
         sb.from("empresas").select("*").order("razao_social"),
+        sb.from("registros_ponto").select("colaborador_id,tipo,registrado_em,data_ref,fraude").not("fraude","is",null).gte("data_ref",ini).lte("data_ref",fim).order("registrado_em",{ascending:false}),
+        sb.from("dispositivos").select("id,colaborador_id,rotulo,ultimo_em").eq("status","pendente"),
       ]);
+      st.suspeitas=susp.data||[]; st.dispPend=dispPend.data||[];
       st.empresas=emp.data||[]; st.empresasMap={}; st.empresas.forEach(x=>st.empresasMap[x.id]=x);
       st.config={}; (cfg.data||[]).forEach(x=>st.config[x.chave]=x.valor);
       TOL=parseInt(st.config.tolerancia_atraso_min||"10",10);
@@ -339,6 +342,18 @@
     function renderTodos(){
       const arr=colabsFiltrados().map(c=>st.dados[c.id]).filter(Boolean);
       const tot=arr.reduce((a,x)=>({trab:a.trab+x.trabMin,faltas:a.faltas+x.faltas,atrasos:a.atrasos+x.atrasos,banco:a.banco+x.banco,atest:a.atest+x.atestados}),{trab:0,faltas:0,atrasos:0,banco:0,atest:0});
+      const pend=(st.dispPend||[]);
+      const pendBanner=pend.length?`<div class="msg err" style="margin-top:16px"><b>${pend.length} aparelho(s) aguardando aprovação.</b> Abra a aba <b>Config › Aparelhos autorizados</b> para liberar ou bloquear.</div>`:"";
+      const idsVis=new Set(arr.map(x=>x.colab.id));
+      const susp=(st.suspeitas||[]).filter(s=>idsVis.has(s.colaborador_id));
+      const nomeDe=id=>{const c=st.colaboradores.find(x=>x.id===id);return c?c.nome.split(" ").slice(0,2).join(" "):"—";};
+      const fmtDt=s=>new Intl.DateTimeFormat("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",timeZone:CFG.FUSO}).format(new Date(s));
+      const suspHTML=susp.length?`<div style="margin-top:18px;border:1.5px solid var(--err);border-radius:var(--r);padding:16px">
+        <div class="sectitle"><h2 style="margin:0">Suspeitas de fraude (GPS)</h2><span class="pill" style="background:var(--err-bg);color:var(--err)">${susp.length}</span></div>
+        <p style="font-size:12.5px;color:var(--muted);margin:0 0 10px">Batidas marcadas por localização pouco confiável ou deslocamento impossível entre pontos. Não bloqueiam a batida — servem para revisão.</p>
+        <table><thead><tr><th>Quando</th><th>Colaborador</th><th>Tipo</th><th>Motivo</th></tr></thead><tbody>
+        ${susp.map(s=>`<tr><td>${fmtDt(s.registrado_em)}</td><td>${nomeDe(s.colaborador_id)}</td><td>${TIPO_LB[s.tipo]||s.tipo}</td><td style="color:var(--err)">${s.fraude}</td></tr>`).join("")}
+        </tbody></table></div>`:"";
       $("#conteudo").innerHTML=`
         <div class="kpis" style="margin-bottom:16px">
           <div class="kpi"><div class="v">${arr.length}</div><div class="l">colaboradores</div></div>
@@ -354,7 +369,7 @@
         </div>
         <div style="margin-top:8px"><table><thead><tr><th>Colaborador</th><th class="num">Dias trab.</th><th class="num">Faltas</th><th class="num">Atrasos</th><th class="num">Atestados</th><th class="num">Horas</th><th class="num">Banco</th></tr></thead><tbody>
           ${arr.map(x=>`<tr><td>${x.colab.nome.split(" ").slice(0,2).join(" ")}</td><td class="num">${x.diasTrab}/${x.diasPrev}</td><td class="num">${x.faltas}</td><td class="num">${x.atrasos}</td><td class="num">${x.atestados}</td><td class="num">${fmtH(x.trabMin)}</td><td class="num" style="color:${x.banco<0?'var(--err)':'var(--ok)'}">${fmtH(x.banco)}</td></tr>`).join("")}
-        </tbody></table></div>`;
+        </tbody></table></div>${pendBanner}${suspHTML}`;
       const labels=arr.map(x=>x.colab.nome.split(" ")[0]);
       st.charts.push(new Chart($("#chHoras"),{type:"bar",data:{labels,datasets:[
         {label:"Trabalhadas",data:arr.map(x=>+(x.trabMin/60).toFixed(1)),backgroundColor:"#1c7fb8"},
@@ -831,6 +846,11 @@
         sb.from("unidades").select("id,nome,empresa_id").order("nome"),
       ]);
       const empresas=empz.data||[], colz2=colz.data||[], uniz2=uniz.data||[];
+      const nomeDe={}; colz2.forEach(c=>nomeDe[c.id]=c.nome.split(" ").slice(0,2).join(" "));
+      const { data:dispz } = await sb.from("dispositivos").select("*").order("ultimo_em",{ascending:false});
+      const disps=dispz||[];
+      const shortUA=ua=>{ ua=ua||""; const m=ua.match(/\((.*?)\)/); return (m?m[1]:ua).slice(0,42)||"aparelho"; };
+      const dispBadge=s=>s==="ativo"?`<span class="badge b-ok">Ativo</span>`:s==="pendente"?`<span class="badge b-atraso">Pendente</span>`:`<span class="badge b-falta">Bloqueado</span>`;
       const empOpts=(sel)=>`<option value="">— sem empresa —</option>`+empresas.map(e=>`<option value="${e.id}" ${sel===e.id?"selected":""}>${e.razao_social}${e.cnpj?" · "+e.cnpj:""}</option>`).join("");
       const cmap={}; (cfg.data||[]).forEach(x=>cmap[x.chave]=x.valor);
       const anoAtual=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date()).slice(0,4);
@@ -883,6 +903,17 @@
           <h3 style="font-size:13px;margin:16px 0 8px;color:#33505f">Lojas</h3>
           ${uniz2.map(u=>`<div class="escrow"><div class="nm">${u.nome}</div><select data-uniemp="${u.id}">${empOpts(u.empresa_id)}</select></div>`).join("")||`<div class="empty">Nenhuma loja.</div>`}
           <div id="vincMsg"></div>
+        </div>
+        <div class="card">
+          <div class="sectitle"><h2 style="margin:0">Aparelhos autorizados</h2>${disps.filter(d=>d.status==="pendente").length?`<span class="pill">${disps.filter(d=>d.status==="pendente").length} pendente(s)</span>`:""}</div>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Cada colaborador fica vinculado ao(s) aparelho(s) dele. O primeiro aparelho é liberado automático; um aparelho novo entra como <b>pendente</b> e só bate ponto depois que você aprovar. Isso impede um colega bater pelo outro.</p>
+          ${disps.length?disps.map(d=>`<div class="row"><div><b>${nomeDe[d.colaborador_id]||"—"}</b> <span class="m">· ${shortUA(d.rotulo)}</span><br><span class="m" style="font-size:11px">visto ${new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:CFG.FUSO}).format(new Date(d.ultimo_em))}</span></div>
+            <div style="display:flex;align-items:center;gap:6px">${dispBadge(d.status)}
+              ${d.status!=="ativo"?`<button class="link" data-dispok="${d.id}" style="color:var(--ok);width:auto;padding:4px 8px">Aprovar</button>`:""}
+              ${d.status!=="bloqueado"?`<button class="link" data-dispblk="${d.id}" style="color:var(--err);width:auto;padding:4px 8px">Bloquear</button>`:""}
+              <button class="link" data-dispdel="${d.id}" style="color:var(--muted);width:auto;padding:4px 8px">Remover</button>
+            </div></div>`).join(""):`<div class="empty">Nenhum aparelho registrado ainda. O primeiro ponto de cada colaborador registra o aparelho dele.</div>`}
+          <div id="dispMsg"></div>
         </div>`;
       $("#cfgSalvar").onclick=salvarConfig;
       $("#ferAdd").onclick=addFeriado;
@@ -891,6 +922,20 @@
       $("#empAdd").onclick=addEmpresa;
       document.querySelectorAll("[data-colemp]").forEach(s=>s.onchange=()=>atribuirEmpresa("colaboradores",s.dataset.colemp,s.value));
       document.querySelectorAll("[data-uniemp]").forEach(s=>s.onchange=()=>atribuirEmpresa("unidades",s.dataset.uniemp,s.value));
+      document.querySelectorAll("[data-dispok]").forEach(b=>b.onclick=()=>setDisp(b.dataset.dispok,"ativo"));
+      document.querySelectorAll("[data-dispblk]").forEach(b=>b.onclick=()=>setDisp(b.dataset.dispblk,"bloqueado"));
+      document.querySelectorAll("[data-dispdel]").forEach(b=>b.onclick=()=>delDisp(b.dataset.dispdel));
+    }
+    async function setDisp(id,status){
+      const {error}=await sb.from("dispositivos").update({status}).eq("id",id);
+      if(error){ $("#dispMsg").innerHTML=`<div class="msg err">Erro: ${error.message}</div>`; return; }
+      renderConfig();
+    }
+    async function delDisp(id){
+      if(!confirm("Remover este aparelho? No próximo ponto ele será registrado de novo (como pendente, se o colaborador já tiver outro).")) return;
+      const {error}=await sb.from("dispositivos").delete().eq("id",id);
+      if(error){ $("#dispMsg").innerHTML=`<div class="msg err">Erro: ${error.message}</div>`; return; }
+      renderConfig();
     }
     async function salvarEmpresa(id){
       const razao_social=$("#emp_rz_"+id).value.trim(), nome_fantasia=$("#emp_ft_"+id).value.trim(), cnpj=$("#emp_cn_"+id).value.trim();

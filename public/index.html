@@ -511,7 +511,7 @@
       if(!coords){ await liberar(); return msg("#pmsg","Ative a localização do celular para bater o ponto.","err"); }
       const { data, error } = await sb.functions.invoke("bater-ponto", { body:{
         tipo, lat:coords.latitude, lng:coords.longitude,
-        precisao_m:coords.accuracy, dispositivo:navigator.userAgent.slice(0,250)
+        precisao_m:coords.accuracy, dispositivo:navigator.userAgent.slice(0,250), device_id:deviceId()
       }});
       if(error){ await liberar(); return msg("#pmsg","Não foi possível registrar agora. Tente de novo.","err"); }
       if(!data || data.ok!==true){
@@ -520,12 +520,26 @@
           return msg("#pmsg",`Você precisa estar em uma loja para bater o ponto.${data.loja?` Mais próxima: ${data.loja}`:""} (${data.distancia_m} m).`,"err");
         if(data?.motivo==="sem_gps")
           return msg("#pmsg","Não consegui sua localização. Ative o GPS e tente de novo.","err");
+        if(data?.motivo==="aparelho_novo")
+          return msg("#pmsg","Este aparelho ainda não está autorizado para você. A gestão foi avisada — peça a liberação e tente novamente.","err");
+        if(data?.motivo==="aparelho_pendente")
+          return msg("#pmsg","Seu aparelho está aguardando aprovação da gestão. Assim que liberarem, você poderá bater o ponto.","err");
+        if(data?.motivo==="aparelho_bloqueado")
+          return msg("#pmsg","Este aparelho está bloqueado. Fale com a gestão.","err");
         return msg("#pmsg","Não foi possível registrar a batida.","err");
       }
       const agora = fmtTime(new Date());
       msg("#pmsg", `<b>${TIPOS[tipo].lb}</b> registrada às ${agora}${data.unidade?` — ${data.unidade}`:""}.`, "ok");
       state.banco=null; // recalcula o banco na próxima visita a "Minhas horas"
       await marcarJaBatidos();
+    }
+
+    function deviceId(){
+      try{
+        let id=localStorage.getItem("imk_device_id");
+        if(!id){ id=(self.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(16).slice(2)); localStorage.setItem("imk_device_id",id); }
+        return id;
+      }catch(_){ return ""; }
     }
 
     function getGPS(){
