@@ -131,7 +131,9 @@
     const TIPO_LB={entrada:"Entrada",entrada_intervalo:"Saída interv.",retorno_intervalo:"Volta interv.",saida:"Saída"};
     const ICON={prev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>',
                 next:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>'};
-    const st={ mes:null, colaboradores:[], sel:"todos", dados:null, charts:[], aba:"dash", escMes:null, auditSel:"todos" };
+    const st={ mes:null, colaboradores:[], sel:"todos", dados:null, charts:[], aba:"dash", escMes:null, auditSel:"todos", empFiltro:"todas", empresas:[], empresasMap:{} };
+    const colabsFiltrados=()=> st.empFiltro==="todas" ? st.colaboradores : st.colaboradores.filter(c=>c.empresa_id===st.empFiltro);
+    const optsEmpresa=(sel)=>`<option value="todas">Todas as empresas</option>`+st.empresas.map(e=>`<option value="${e.id}" ${sel===e.id?"selected":""}>${e.razao_social}${e.cnpj?" · "+e.cnpj:""}</option>`).join("");
     const CODIGOS={
       D:{tipo:"trabalho",ent:"08:00",sai:"17:30",interv:90,lb:"Diarista 08–17:30"},
       M:{tipo:"trabalho",ent:"08:00",sai:"12:00",interv:0,lb:"Manhã 08–12"},
@@ -169,7 +171,7 @@
 
     async function carregar(){
       const {y,m}=st.mes, ini=primeiro(y,m), fim=ultimo(y,m);
-      const [c,e,r,a,bj,atOk,atPend,trcP,corrP,cfg,fer]=await Promise.all([
+      const [c,e,r,a,bj,atOk,atPend,trcP,corrP,cfg,fer,emp]=await Promise.all([
         sb.from("colaboradores").select("*").eq("papel","colaborador").eq("ativo",true).order("nome"),
         sb.from("escalas").select("*").gte("data",ini).lte("data",fim),
         sb.from("registros_ponto").select("colaborador_id,tipo,registrado_em,data_ref").gte("data_ref",ini).lte("data_ref",fim),
@@ -181,7 +183,9 @@
         sb.from("correcoes_ponto").select("*").eq("status","pendente").order("criado_em",{ascending:true}),
         sb.from("config").select("chave,valor"),
         sb.from("feriados").select("data,nome").gte("data",ini).lte("data",fim),
+        sb.from("empresas").select("*").order("razao_social"),
       ]);
+      st.empresas=emp.data||[]; st.empresasMap={}; st.empresas.forEach(x=>st.empresasMap[x.id]=x);
       st.config={}; (cfg.data||[]).forEach(x=>st.config[x.chave]=x.valor);
       TOL=parseInt(st.config.tolerancia_atraso_min||"10",10);
       TOL_SAIDA=parseInt(st.config.tolerancia_saida_min||"10",10);
@@ -265,7 +269,8 @@
       if(st.aba==="config"){ screen.innerHTML=tabBar+`<div id="cfgWrap"><div class="card"><div class="empty"><span class="spin"></span></div></div></div>`; wireTabs(); renderConfig(); return; }
       const {y,m}=st.mes, at=mesAtual(), noLim=(y>at.y)||(y===at.y&&m>=at.m);
       const opts=`<option value="todos">Todos os colaboradores</option>`+
-        st.colaboradores.map(c=>`<option value="${c.id}" ${st.sel===c.id?"selected":""}>${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("");
+        colabsFiltrados().map(c=>`<option value="${c.id}" ${st.sel===c.id?"selected":""}>${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("");
+      const empSel=st.empresas.length>1?`<select id="selEmp">${optsEmpresa(st.empFiltro)}</select>`:"";
       screen.innerHTML=tabBar+`
         <div class="card">
           <div class="controls">
@@ -274,7 +279,7 @@
               <div class="mestitulo">${fmtMesAno(y,m)}</div>
               <button class="navbtn" id="nextM" ${noLim?"disabled":""}>${ICON.next}</button>
             </div>
-            <select id="selColab" style="margin-left:auto">${opts}</select>
+            ${empSel?`<div style="margin-left:auto;display:flex;gap:8px">${empSel}<select id="selColab">${opts}</select></div>`:`<select id="selColab" style="margin-left:auto">${opts}</select>`}
           </div>
           <div id="conteudo"></div>
         </div>
@@ -320,6 +325,7 @@
       $("#prevM").onclick=()=>{let ny=y,nm=m-1;if(nm<1){nm=12;ny--;}st.mes={y:ny,m:nm};carregar();};
       $("#nextM").onclick=()=>{if(noLim)return;let ny=y,nm=m+1;if(nm>12){nm=1;ny++;}st.mes={y:ny,m:nm};carregar();};
       $("#selColab").onchange=e=>{st.sel=e.target.value;render();};
+      if($("#selEmp")) $("#selEmp").onchange=e=>{st.empFiltro=e.target.value;st.sel="todos";render();};
       $("#aSalvar").onclick=salvarAusencia;
       $("#bPagar").onclick=()=>salvarAjuste("pagamento");
       $("#bFolgar").onclick=()=>salvarAjuste("folga");
@@ -331,7 +337,7 @@
     }
 
     function renderTodos(){
-      const arr=st.colaboradores.map(c=>st.dados[c.id]).filter(Boolean);
+      const arr=colabsFiltrados().map(c=>st.dados[c.id]).filter(Boolean);
       const tot=arr.reduce((a,x)=>({trab:a.trab+x.trabMin,faltas:a.faltas+x.faltas,atrasos:a.atrasos+x.atrasos,banco:a.banco+x.banco,atest:a.atest+x.atestados}),{trab:0,faltas:0,atrasos:0,banco:0,atest:0});
       $("#conteudo").innerHTML=`
         <div class="kpis" style="margin-bottom:16px">
@@ -414,7 +420,9 @@
       doc.setFontSize(11); doc.setTextColor(13,35,48);
       doc.text(`${x.colab.nome}   ·   Matrícula ${x.colab.matricula}   ·   ${x.colab.cargo||""}`,40,88);
       doc.setFontSize(9); doc.setTextColor(91,118,134);
-      doc.text("Empresa: _______________________________    CNPJ: ____________________",40,106);
+      const emp = (st.empresasMap && x.colab.empresa_id) ? st.empresasMap[x.colab.empresa_id] : null;
+      doc.text(emp ? `Empregador: ${emp.razao_social}    CNPJ: ${emp.cnpj||"—"}`
+                   : "Empresa: _______________________________    CNPJ: ____________________", 40, 106);
       const body=x.dias.map(dd=>{
         const [Y,M,D]=dd.d.split("-"); const dow=dows[new Date(dd.d+"T12:00:00").getDay()];
         const prev=dd.esc&&!dd.esc.eh_folga&&dd.esc.entrada_prevista
@@ -477,21 +485,23 @@
 
     function renderAuditoria(){
       const {y,m}=st.mes, at=mesAtual(), noLim=(y>at.y)||(y===at.y&&m>=at.m);
-      const alvo = st.auditSel && st.auditSel!=="todos" ? st.colaboradores.filter(c=>c.id===st.auditSel) : st.colaboradores;
+      const base=colabsFiltrados();
+      const alvo = st.auditSel && st.auditSel!=="todos" ? base.filter(c=>c.id===st.auditSel) : base;
       let achados=[]; alvo.forEach(c=>{ const r=st.dados[c.id]; if(r) achados=achados.concat(auditarColab(r)); });
       const cont={Intrajornada:0,Interjornada:0,"Hora extra":0,"Registro incompleto":0};
       achados.forEach(a=>cont[a.regra]=(cont[a.regra]||0)+1);
       const alta=achados.filter(a=>a.nivel==="alta").length, media=achados.length-alta;
       achados.sort((a,b)=> b.data.localeCompare(a.data) || a.nome.localeCompare(b.nome));
       const opts=`<option value="todos">Todos os colaboradores</option>`+
-        st.colaboradores.map(c=>`<option value="${c.id}" ${st.auditSel===c.id?"selected":""}>${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("");
+        base.map(c=>`<option value="${c.id}" ${st.auditSel===c.id?"selected":""}>${c.nome.split(" ").slice(0,2).join(" ")}</option>`).join("");
+      const empSel=st.empresas.length>1?`<select id="audEmp">${optsEmpresa(st.empFiltro)}</select>`:"";
       const fmtData=d=>{const[Y,M,D]=d.split("-");return `${D}/${M}`;};
       const nivBadge=n=>n==="alta"?`<span class="badge b-falta">Alta</span>`:`<span class="badge b-atraso">Média</span>`;
       $("#audWrap").innerHTML=`
         <div class="card">
           <div class="controls">
             <div class="mesnav"><button class="navbtn" id="aPrevM">${ICON.prev}</button><div class="mestitulo">${fmtMesAno(y,m)}</div><button class="navbtn" id="aNextM" ${noLim?"disabled":""}>${ICON.next}</button></div>
-            <select id="audColab" style="margin-left:auto">${opts}</select>
+            ${empSel?`<div style="margin-left:auto;display:flex;gap:8px">${empSel}<select id="audColab">${opts}</select></div>`:`<select id="audColab" style="margin-left:auto">${opts}</select>`}
           </div>
           <div class="legenda"><b>Auditoria CLT</b> sobre as batidas reais — intrajornada, interjornada, hora extra e registro incompleto. Abonos (atestado, justificada) não neutralizam violação física de intervalo ou descanso.</div>
           <div class="kpis" style="margin-bottom:14px">
@@ -514,6 +524,7 @@
       $("#aPrevM").onclick=()=>{let ny=y,nm=m-1;if(nm<1){nm=12;ny--;}st.mes={y:ny,m:nm};carregar();};
       $("#aNextM").onclick=()=>{if(noLim)return;let ny=y,nm=m+1;if(nm>12){nm=1;ny++;}st.mes={y:ny,m:nm};carregar();};
       $("#audColab").onchange=e=>{st.auditSel=e.target.value;renderAuditoria();};
+      if($("#audEmp")) $("#audEmp").onchange=e=>{st.empFiltro=e.target.value;st.auditSel="todos";renderAuditoria();};
       const pdfB=$("#audPdf"); if(pdfB) pdfB.onclick=()=>exportAuditPdf(achados,{alta,media,cont});
       const xlB=$("#audXlsx"); if(xlB) xlB.onclick=()=>exportAuditXlsx(achados);
     }
@@ -521,9 +532,10 @@
     function exportAuditPdf(achados,resumo){
       if(!window.jspdf){ alert("Gerador de PDF ainda carregando, tente de novo."); return; }
       const {y,m}=st.mes; const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:"pt",format:"a4"});
+      const empF = (st.empFiltro && st.empFiltro!=="todas") ? st.empresasMap[st.empFiltro] : null;
       doc.setFontSize(16); doc.setTextColor(13,35,48); doc.text("Auditoria CLT — Ponto iMarket",40,48);
       doc.setFontSize(10); doc.setTextColor(91,118,134);
-      doc.text(`Competência: ${fmtMesAno(y,m)}   ·   Gerado em ${new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:CFG.FUSO}).format(new Date())}`,40,66);
+      doc.text(`Competência: ${fmtMesAno(y,m)}${empF?`   ·   ${empF.razao_social}${empF.cnpj?" ("+empF.cnpj+")":""}`:""}   ·   Gerado em ${new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short",timeZone:CFG.FUSO}).format(new Date())}`,40,66);
       doc.setFontSize(10); doc.setTextColor(13,35,48);
       doc.text(`Total: ${achados.length}   ·   Alta: ${resumo.alta}   ·   Média: ${resumo.media}   ·   Intrajornada: ${resumo.cont.Intrajornada}   ·   Interjornada: ${resumo.cont.Interjornada}   ·   Hora extra: ${resumo.cont["Hora extra"]}   ·   Reg. incompleto: ${resumo.cont["Registro incompleto"]}`,40,86,{maxWidth:515});
       const body=achados.map(a=>[a.data.split("-").reverse().join("/"),a.nome,a.regra,a.nivel==="alta"?"Alta":"Média",a.det]);
@@ -811,10 +823,15 @@
 
     // ---------------------------------------------------- TELA DE CONFIG
     async function renderConfig(){
-      const [cfg, fer] = await Promise.all([
+      const [cfg, fer, empz, colz, uniz] = await Promise.all([
         sb.from("config").select("*").order("chave"),
         sb.from("feriados").select("*").order("data"),
+        sb.from("empresas").select("*").order("razao_social"),
+        sb.from("colaboradores").select("id,nome,matricula,empresa_id").eq("papel","colaborador").order("nome"),
+        sb.from("unidades").select("id,nome,empresa_id").order("nome"),
       ]);
+      const empresas=empz.data||[], colz2=colz.data||[], uniz2=uniz.data||[];
+      const empOpts=(sel)=>`<option value="">— sem empresa —</option>`+empresas.map(e=>`<option value="${e.id}" ${sel===e.id?"selected":""}>${e.razao_social}${e.cnpj?" · "+e.cnpj:""}</option>`).join("");
       const cmap={}; (cfg.data||[]).forEach(x=>cmap[x.chave]=x.valor);
       const anoAtual=new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date()).slice(0,4);
       const fers=(fer.data||[]).filter(f=>f.data>=anoAtual+"-01-01");
@@ -840,10 +857,60 @@
           </div>
           <div id="ferMsg"></div>
           <div style="margin-top:12px">${fers.map(f=>`<div class="row"><div><b>${br(f.data)}</b> <span class="m">· ${f.nome} (${f.abrangencia})</span></div><button class="link" data-fer="${f.data}" style="color:var(--err);width:auto;padding:4px 8px">Remover</button></div>`).join("")||`<div class="empty">Nenhum feriado.</div>`}</div>
+        </div>
+        <div class="card">
+          <h2>Empresas (CNPJ empregador)</h2>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">A empresa é o empregador que aparece no espelho de ponto e na auditoria. Edite a razão social e o CNPJ; adicione novas se precisar.</p>
+          ${empresas.map(e=>`<div class="formrow" style="grid-template-columns:1.4fr 1fr 1.2fr auto;margin-bottom:8px">
+            <div><label>Razão social</label><input id="emp_rz_${e.id}" value="${e.razao_social||""}"></div>
+            <div><label>Nome fantasia</label><input id="emp_ft_${e.id}" value="${e.nome_fantasia||""}"></div>
+            <div><label>CNPJ</label><input id="emp_cn_${e.id}" value="${e.cnpj||""}"></div>
+            <div><button class="btn ghost" data-empsave="${e.id}">Salvar</button></div>
+          </div>`).join("")}
+          <div class="formrow" style="grid-template-columns:1.4fr 1fr 1.2fr auto;margin-top:12px;border-top:1px dashed var(--line);padding-top:12px">
+            <div><label>Nova — razão social</label><input id="empNewRz" placeholder="ex.: AFKC Comércio Ltda"></div>
+            <div><label>Nome fantasia</label><input id="empNewFt" placeholder="iMarket"></div>
+            <div><label>CNPJ</label><input id="empNewCn" placeholder="00.000.000/0001-00"></div>
+            <div><button class="btn" id="empAdd">Adicionar</button></div>
+          </div>
+          <div id="empMsg"></div>
+        </div>
+        <div class="card">
+          <h2>Vínculo empregador</h2>
+          <p style="font-size:12.5px;color:var(--muted);margin:0 0 12px">Defina a qual CNPJ cada colaborador e cada loja pertence. A mudança é salva na hora.</p>
+          <h3 style="font-size:13px;margin:6px 0 8px;color:#33505f">Colaboradores</h3>
+          ${colz2.map(c=>`<div class="escrow"><div class="nm">${c.nome.split(" ").slice(0,2).join(" ")} <span class="m" style="color:var(--muted);font-weight:400">· ${c.matricula}</span></div><select data-colemp="${c.id}">${empOpts(c.empresa_id)}</select></div>`).join("")||`<div class="empty">Nenhum colaborador.</div>`}
+          <h3 style="font-size:13px;margin:16px 0 8px;color:#33505f">Lojas</h3>
+          ${uniz2.map(u=>`<div class="escrow"><div class="nm">${u.nome}</div><select data-uniemp="${u.id}">${empOpts(u.empresa_id)}</select></div>`).join("")||`<div class="empty">Nenhuma loja.</div>`}
+          <div id="vincMsg"></div>
         </div>`;
       $("#cfgSalvar").onclick=salvarConfig;
       $("#ferAdd").onclick=addFeriado;
       document.querySelectorAll("[data-fer]").forEach(b=>b.onclick=()=>delFeriado(b.dataset.fer));
+      document.querySelectorAll("[data-empsave]").forEach(b=>b.onclick=()=>salvarEmpresa(b.dataset.empsave));
+      $("#empAdd").onclick=addEmpresa;
+      document.querySelectorAll("[data-colemp]").forEach(s=>s.onchange=()=>atribuirEmpresa("colaboradores",s.dataset.colemp,s.value));
+      document.querySelectorAll("[data-uniemp]").forEach(s=>s.onchange=()=>atribuirEmpresa("unidades",s.dataset.uniemp,s.value));
+    }
+    async function salvarEmpresa(id){
+      const razao_social=$("#emp_rz_"+id).value.trim(), nome_fantasia=$("#emp_ft_"+id).value.trim(), cnpj=$("#emp_cn_"+id).value.trim();
+      if(!razao_social){ $("#empMsg").innerHTML=`<div class="msg err">Razão social é obrigatória.</div>`; return; }
+      const {error}=await sb.from("empresas").update({razao_social,nome_fantasia:nome_fantasia||null,cnpj:cnpj||null}).eq("id",id);
+      $("#empMsg").innerHTML=error?`<div class="msg err">Erro: ${error.message}</div>`:`<div class="msg ok">Empresa atualizada.</div>`;
+      if(!error) await carregar();
+    }
+    async function addEmpresa(){
+      const razao_social=$("#empNewRz").value.trim(), nome_fantasia=$("#empNewFt").value.trim(), cnpj=$("#empNewCn").value.trim();
+      if(!razao_social){ $("#empMsg").innerHTML=`<div class="msg err">Informe a razão social.</div>`; return; }
+      const tid=st.empresas[0]?.tenant_id||null;
+      const {error}=await sb.from("empresas").insert({razao_social,nome_fantasia:nome_fantasia||null,cnpj:cnpj||null,tenant_id:tid});
+      if(error){ $("#empMsg").innerHTML=`<div class="msg err">Erro: ${error.message}</div>`; return; }
+      await carregar(); render();
+    }
+    async function atribuirEmpresa(tabela,id,empresaId){
+      const {error}=await sb.from(tabela).update({empresa_id:empresaId||null}).eq("id",id);
+      $("#vincMsg").innerHTML=error?`<div class="msg err">Erro: ${error.message}</div>`:`<div class="msg ok">Vínculo atualizado.</div>`;
+      if(!error){ const c=st.colaboradores.find(x=>x.id===id); if(c) c.empresa_id=empresaId||null; }
     }
     async function salvarConfig(){
       const ups=[
