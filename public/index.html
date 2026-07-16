@@ -6,6 +6,12 @@
   <meta name="theme-color" content="#0a1822" />
   <meta name="deploy" content="auto-ok-2026-07-03" />
   <title>Ponto iMarket</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ponto" />
+  <meta name="mobile-web-app-capable" content="yes" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='11' fill='%230a1822'/><path d='M12 7v5l3 2' stroke='%231c8fc9' stroke-width='2' fill='none' stroke-linecap='round'/></svg>" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -88,6 +94,35 @@
     .punch:disabled{opacity:.5;cursor:default}
     .punch.done{border-color:var(--ok);background:#f4fbf6}
     .punch .check{position:absolute;top:9px;right:9px;color:var(--ok);width:18px;height:18px}
+    /* botão da vez em destaque; os demais discretos */
+    .punch.next{border-color:var(--brand);border-width:2.5px;background:#f2f9fd;
+      box-shadow:0 0 0 4px rgba(28,127,184,.13)}
+    .punch.next .lb{color:var(--brand-ink)}
+    .punch .agora{display:none}
+    .punch.next .agora{display:block;position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+      background:var(--brand);color:#fff;font-family:"Poppins";font-weight:700;font-size:9.5px;
+      letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:999px;white-space:nowrap}
+    .punch.dim{opacity:.5}
+    .punch.dim:hover{opacity:.8}
+    /* resumo do dia */
+    .resumo{margin:14px 0 2px;background:var(--field);border:1.5px solid var(--line);
+      border-radius:var(--r-sm);padding:11px 13px}
+    .resumo .t{font-size:11px;font-weight:700;font-family:"Poppins";color:var(--muted);
+      text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+    .resumo .its{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
+    .resumo .it{display:flex;align-items:center;gap:5px;color:var(--ink)}
+    .resumo .it b{font-variant-numeric:tabular-nums}
+    .resumo .it.pend{color:var(--muted)}
+    .resumo .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
+    .resumo .it.pend .dot{background:#c9d6de}
+    /* banner de instalação */
+    .inst{display:flex;align-items:center;gap:11px;background:var(--info-bg);
+      border:1.5px solid #c9e3f5;border-radius:var(--r-sm);padding:11px 13px;margin-bottom:12px}
+    .inst .tx{flex:1;font-size:13px;color:var(--info);line-height:1.4}
+    .inst .tx b{display:block;font-family:"Poppins";font-size:13.5px}
+    .inst button{border:none;border-radius:9px;font-family:"Poppins";font-weight:700;
+      font-size:13px;padding:9px 13px;cursor:pointer;background:var(--brand);color:#fff}
+    .inst .x{background:none;color:var(--muted);padding:6px 8px;font-size:18px;line-height:1}
     .pill{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:999px;
       font-size:12px;font-weight:700;font-family:"Poppins"}
     .pill.ok{background:var(--ok-bg);color:var(--ok)}
@@ -233,6 +268,34 @@
       saida:{lb:"Saída",ic:"ic-red",tag:"s"},
     };
     const state = { user:null, colaborador:null, unidades:[], view:"ponto", banco:null, bancoView:"total" };
+    const ORDEM = ["entrada","entrada_intervalo","retorno_intervalo","saida"];
+
+    // ------------------------------------------- PWA: instalar na tela inicial
+    // Android/Chrome deixa a gente disparar o instalador (beforeinstallprompt).
+    // iPhone/Safari não expõe isso: só resta ensinar o caminho do Compartilhar.
+    let deferredPrompt=null;
+    if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+    window.addEventListener("beforeinstallprompt",e=>{ e.preventDefault(); deferredPrompt=e; pintarInstalar(); });
+    window.addEventListener("appinstalled",()=>{ deferredPrompt=null; pintarInstalar(); });
+    const ehStandalone=()=>{ try{ return window.matchMedia("(display-mode: standalone)").matches || navigator.standalone===true; }catch(_){ return false; } };
+    const ehIOS=()=> /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const instDispensado=()=>{ try{ return localStorage.getItem("imk_inst_dispensado")==="1"; }catch(_){ return false; } };
+    function dispensarInst(){ try{ localStorage.setItem("imk_inst_dispensado","1"); }catch(_){} pintarInstalar(); }
+    function pintarInstalar(){
+      const box=$("#instWrap"); if(!box) return;
+      if(ehStandalone()||instDispensado()){ box.innerHTML=""; return; }
+      if(deferredPrompt){
+        box.innerHTML=`<div class="inst"><div class="tx"><b>Instale o app</b>Acesso em um toque, direto da tela inicial.</div>
+          <button id="instBtn">Instalar</button><button class="x" id="instX" aria-label="Dispensar">&times;</button></div>`;
+        $("#instBtn").onclick=async()=>{ if(!deferredPrompt) return; deferredPrompt.prompt();
+          try{ await deferredPrompt.userChoice; }catch(_){} deferredPrompt=null; pintarInstalar(); };
+        $("#instX").onclick=dispensarInst;
+      } else if(ehIOS()){
+        box.innerHTML=`<div class="inst"><div class="tx"><b>Instale o app</b>Toque em Compartilhar e depois em “Adicionar à Tela de Início”.</div>
+          <button class="x" id="instX" aria-label="Dispensar">&times;</button></div>`;
+        $("#instX").onclick=dispensarInst;
+      } else box.innerHTML="";
+    }
 
     const fmtTime = (d)=> new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit",timeZone:CFG.FUSO}).format(d);
     const fmtTimeS= (d)=> new Intl.DateTimeFormat("pt-BR",{hour:"2-digit",minute:"2-digit",second:"2-digit",timeZone:CFG.FUSO}).format(d);
@@ -472,39 +535,62 @@
       if(clockTimer) clearInterval(clockTimer);
       screen.innerHTML = `
         <div class="card fade">
+          <div id="instWrap"></div>
           <div class="clock"><div class="time" id="clk"></div><div class="date" id="dt"></div></div>
           <div id="pmsg"></div>
           <div class="grid" id="grid">
             ${Object.entries(TIPOS).map(([k,v])=>`
               <button class="punch" data-tipo="${k}">
+                <span class="agora">agora</span>
                 <span class="check">${ICON.check}</span>
                 <span class="ic ${v.ic}">${ICON[k]}</span>
                 <span class="lb">${v.lb}</span></button>`).join("")}
           </div>
+          <div id="resumoDia"></div>
           <button class="link" id="logoutL">Sair da conta</button>
         </div>`;
       $("#logoutL").onclick=logout;
       const tick=()=>{const n=new Date();$("#clk").textContent=fmtTimeS(n);$("#dt").textContent=fmtDate(n);};
       tick(); clockTimer=setInterval(tick,1000);
       document.querySelectorAll(".punch").forEach(b=>b.onclick=()=>baterPonto(b.dataset.tipo));
+      pintarInstalar();
       await marcarJaBatidos();
     }
 
     async function marcarJaBatidos(){
       const hoje = new Intl.DateTimeFormat("en-CA",{timeZone:CFG.FUSO}).format(new Date());
-      const { data } = await sb.from("registros_ponto").select("tipo")
+      const { data } = await sb.from("registros_ponto").select("tipo,registrado_em")
         .eq("colaborador_id",state.user.id).eq("data_ref",hoje);
-      const feitos = new Set((data||[]).map(r=>r.tipo));
+      const regs = data||[];
+      const hora={}; regs.forEach(r=>hora[r.tipo]=fmtTime(new Date(r.registrado_em)));
+      const feitos = new Set(regs.map(r=>r.tipo));
+      const prox = ORDEM.find(t=>!feitos.has(t)) || null;   // próxima batida esperada
       document.querySelectorAll(".punch").forEach(b=>{
-        const done = feitos.has(b.dataset.tipo);
+        const t=b.dataset.tipo, done=feitos.has(t);
         b.disabled = done; b.classList.toggle("done", done);
-        b.querySelector(".check").style.display = done ? "block" : "none";
+        b.classList.toggle("next", t===prox);
+        b.classList.toggle("dim", !done && t!==prox);
+        const chk=b.querySelector(".check"); if(chk) chk.style.display = done ? "block" : "none";
       });
+      pintarResumo(hora,prox);
     }
 
+    function pintarResumo(hora,prox){
+      const box=$("#resumoDia"); if(!box) return;
+      const alm = hora.entrada_intervalo
+        ? `${hora.entrada_intervalo}${hora.retorno_intervalo?" – "+hora.retorno_intervalo:" – …"}` : null;
+      const it=(lb,val)=>`<span class="it ${val?"":"pend"}"><i class="dot"></i>${lb} <b>${val||"—"}</b></span>`;
+      box.innerHTML=`<div class="resumo"><div class="t">Hoje</div>
+        <div class="its">${it("Entrada",hora.entrada)}${it("Almoço",alm)}${it("Saída",hora.saida)}</div>
+        <div style="margin-top:8px;font-size:12.5px;color:${prox?"var(--muted)":"var(--ok)"}">
+          ${prox?`Falta bater: <b>${TIPOS[prox].lb.toLowerCase()}</b>`:"Dia completo ✓"}</div></div>`;
+    }
+
+    const SEM_NET='<b>Sem conexão</b> — sua batida <b>não</b> foi registrada. Conecte-se à internet e tente de novo.';
     async function baterPonto(tipo){
       const btns=document.querySelectorAll(".punch"); btns.forEach(b=>b.disabled=true);
       const liberar=()=>marcarJaBatidos();
+      if(!navigator.onLine){ await liberar(); return msg("#pmsg",SEM_NET,"err"); }
       msg("#pmsg",'<span class="spin" style="border-color:#0e5a8a44;border-top-color:#0e5a8a"></span> Capturando localização...',"info");
       let coords=null;
       try{ coords = await getGPS(); }catch(e){}
@@ -513,7 +599,7 @@
         tipo, lat:coords.latitude, lng:coords.longitude,
         precisao_m:coords.accuracy, dispositivo:navigator.userAgent.slice(0,250), device_id:deviceId()
       }});
-      if(error){ await liberar(); return msg("#pmsg","Não foi possível registrar agora. Tente de novo.","err"); }
+      if(error){ await liberar(); return msg("#pmsg", navigator.onLine?"Não foi possível registrar agora. Tente de novo.":SEM_NET, "err"); }
       if(!data || data.ok!==true){
         await liberar();
         if(data?.motivo==="fora_de_alcance")
@@ -529,6 +615,7 @@
         return msg("#pmsg","Não foi possível registrar a batida.","err");
       }
       const agora = fmtTime(new Date());
+      try{ if(navigator.vibrate) navigator.vibrate([35,45,35]); }catch(_){}   // confirmação tátil
       msg("#pmsg", `<b>${TIPOS[tipo].lb}</b> registrada às ${agora}${data.unidade?` — ${data.unidade}`:""}.`, "ok");
       state.banco=null; // recalcula o banco na próxima visita a "Minhas horas"
       await marcarJaBatidos();
