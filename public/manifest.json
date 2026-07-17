@@ -1,6 +1,6 @@
 {
-  "name": "Ponto iMarket",
-  "short_name": "Ponto",
+  "name": "iMarket RH",
+  "short_name": "iMarket RH",
   "description": "Ponto eletrônico do iMarket — bata o ponto, veja suas horas e sua escala.",
   "id": "/index.html",
   "start_url": "/index.html",

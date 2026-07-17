@@ -6,8 +6,8 @@
 // ponto sempre exige conexão (a hora é carimbada pelo servidor, é o que
 // sustenta o anti-fraude). Nunca cacheamos POST nem chamadas ao Supabase.
 
-const VERSION = "imk-v1";
-const SHELL = ["./index.html", "./config.js", "./manifest.json", "./logo.png", "./icon-192.png", "./icon-512.png"];
+const VERSION = "imk-v2";
+const SHELL = ["./index.html", "./config.js", "./manifest.json", "./logo.png", "./icon-192.png", "./icon-512.png", "./apple-touch-icon-180.png"];
 
 self.addEventListener("install", (e) => {
   self.skipWaiting();
